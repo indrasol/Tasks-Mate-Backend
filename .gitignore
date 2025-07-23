@@ -1,0 +1,47 @@
+# FastAPI related ignores
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.pipenv/
+
+# Environment variables
+.env
+.env.*
+
+# IDE files
+.vscode/
+.idea/
+
+# Test and coverage reports
+.coverage
+htmlcov/
+.tox/
+.pytest_cache/
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+
+# Migrations
+migrations/
+
+# Static files
+staticfiles/
+
+# FastAPI generated OpenAPI docs
+openapi.json
+
+# Database files
+*.db
+*.sqlite3
+
+# OS files
+.DS_Store
+Thumbs.db
