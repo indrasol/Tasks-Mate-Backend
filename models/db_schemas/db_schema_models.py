@@ -35,60 +35,60 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-class Project(Base):
-    __tablename__ = "projects"
-    id = Column(Integer, primary_key=True, index=True)
-    project_code = Column(String, unique=True, index=True, nullable=False)
-    user_id = Column(String, ForeignKey("users.id"), nullable=False)
-    roles = relationship("Role", back_populates="project")
-    name = Column(String, nullable=False)
-    description = Column(String, nullable=True)
-    status = Column(SQLAlchemyEnum(ProjectStatus), default=ProjectStatus.NOT_STARTED, nullable=False)
-    priority = Column(SQLAlchemyEnum(ProjectPriority), nullable=True)
-    created_date = Column(Date, server_default=func.current_date(), nullable=False)  # Default to current date
-    due_date = Column(Date, nullable=True)  
-    creator = Column(String, nullable=False)  
-    assigned_to = Column(String, nullable=True)  
-    threat_model_id = Column(String, nullable=True, index=True)
-    dfd_data = Column(ARRAY(JSONB), default=[])
-    domain = Column(String, nullable=True)  
-    template_type = Column(String, nullable=True)  
-    imported_file = Column(String, nullable=True)  
-    user = relationship("User", back_populates="projects")
-    conversation_history = Column(ARRAY(JSONB), default=[])
-    diagram_state = Column(JSONB, default={"nodes": [], "edges": []})
-    version = Column(Integer, default=0, nullable=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
-    tenant = relationship("Tenant", back_populates="projects")
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    diagram_updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+# class Project(Base):
+#     __tablename__ = "projects"
+#     id = Column(Integer, primary_key=True, index=True)
+#     project_code = Column(String, unique=True, index=True, nullable=False)
+#     user_id = Column(String, ForeignKey("users.id"), nullable=False)
+#     roles = relationship("Role", back_populates="project")
+#     name = Column(String, nullable=False)
+#     description = Column(String, nullable=True)
+#     status = Column(SQLAlchemyEnum(ProjectStatus), default=ProjectStatus.NOT_STARTED, nullable=False)
+#     priority = Column(SQLAlchemyEnum(ProjectPriority), nullable=True)
+#     created_date = Column(Date, server_default=func.current_date(), nullable=False)  # Default to current date
+#     due_date = Column(Date, nullable=True)  
+#     creator = Column(String, nullable=False)  
+#     assigned_to = Column(String, nullable=True)  
+#     threat_model_id = Column(String, nullable=True, index=True)
+#     dfd_data = Column(ARRAY(JSONB), default=[])
+#     domain = Column(String, nullable=True)  
+#     template_type = Column(String, nullable=True)  
+#     imported_file = Column(String, nullable=True)  
+#     user = relationship("User", back_populates="projects")
+#     conversation_history = Column(ARRAY(JSONB), default=[])
+#     diagram_state = Column(JSONB, default={"nodes": [], "edges": []})
+#     version = Column(Integer, default=0, nullable=True)
+#     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
+#     tenant = relationship("Tenant", back_populates="projects")
+#     created_at = Column(DateTime(timezone=True), server_default=func.now())
+#     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+#     diagram_updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    def to_dict(self):
-        """Convert project to a dictionary for JSON response."""
-        return {
-            "id": self.project_code,
-            "name": self.name,
-            "description": self.description,
-            "status": self.status.value if self.status else None,
-            "priority": self.priority.value if self.priority else None, 
-            "created_date": self.created_date.isoformat() if self.created_date else None,
-            "due_date": self.due_date.isoformat() if self.due_date else None,
-            "creator": self.creator,
-            "assigned_to": self.assigned_to,
-            "domain": self.domain,
-            "template_type": self.template_type,
-            "imported_file": self.imported_file,
-            "tenant_id": self.tenant_id,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-            "conversation_history": self.conversation_history,
-            "diagram_state": self.diagram_state,
-            "version": self.version,
-            "threat_model_id" : self.threat_model_id,
-            "dfd_data" : self.dfd_model,
-            "diagram_updated_at" : self.diagram_updated_at
-        }
+#     def to_dict(self):
+#         """Convert project to a dictionary for JSON response."""
+#         return {
+#             "id": self.project_code,
+#             "name": self.name,
+#             "description": self.description,
+#             "status": self.status.value if self.status else None,
+#             "priority": self.priority.value if self.priority else None, 
+#             "created_date": self.created_date.isoformat() if self.created_date else None,
+#             "due_date": self.due_date.isoformat() if self.due_date else None,
+#             "creator": self.creator,
+#             "assigned_to": self.assigned_to,
+#             "domain": self.domain,
+#             "template_type": self.template_type,
+#             "imported_file": self.imported_file,
+#             "tenant_id": self.tenant_id,
+#             "created_at": self.created_at.isoformat() if self.created_at else None,
+#             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+#             "conversation_history": self.conversation_history,
+#             "diagram_state": self.diagram_state,
+#             "version": self.version,
+#             "threat_model_id" : self.threat_model_id,
+#             "dfd_data" : self.dfd_model,
+#             "diagram_updated_at" : self.diagram_updated_at
+#         }
 class Tenant(Base):
     __tablename__ = "tenants"
     id = Column(Integer, primary_key=True, index=True)
@@ -181,3 +181,24 @@ class Organization(Base):
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     delete_reason = Column(Text, nullable=True)
 
+from sqlalchemy import ForeignKey
+
+class Project(Base):
+    __tablename__ = "projects"
+
+    project_id = Column(String, primary_key=True)  # Using `text` PK from Supabase
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.org_id"), nullable=False)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    project_metadata = Column("metadata", JSONB, default=dict)
+    status = Column(String, default="not_started")
+    priority = Column(String, default="none")
+    start_date = Column(DateTime(timezone=True), nullable=True)
+    end_date = Column(DateTime(timezone=True), nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_by = Column(UUID(as_uuid=True), nullable=True)
+    updated_by = Column(UUID(as_uuid=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    delete_reason = Column(Text, nullable=True)

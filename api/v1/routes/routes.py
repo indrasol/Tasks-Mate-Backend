@@ -18,3 +18,5 @@ router.include_router(login_router, tags=["Register - login_router"])
 router.include_router(auth_router, tags=["Register - auth_router"])
 
 router.include_router(organizations_router, tags=["Organizations - organizations_router"])
+from api.v1.routes.projects.routes import router as projects_router
+router.include_router(projects_router, tags=["Projects - projects_router"])
