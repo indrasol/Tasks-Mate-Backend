@@ -202,3 +202,31 @@ class Project(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     delete_reason = Column(Text, nullable=True)
+
+from sqlalchemy import Column, String, Boolean, DateTime, Text, ForeignKey, ARRAY
+from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.sql import func
+
+class Task(Base):
+    __tablename__ = "tasks"
+
+    task_id = Column(String, primary_key=True)
+    project_id = Column(String, ForeignKey("projects.project_id"), nullable=False)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+
+    status = Column(String, default="not_started")
+    assignee_id = Column(UUID(as_uuid=True), nullable=True)
+    due_date = Column(DateTime(timezone=True), nullable=True)
+    priority = Column(String, default="none")
+
+    tags = Column(ARRAY(String), default=list)
+    task_metadata = Column('metadata', ARRAY(JSONB), default=list)
+    sub_tasks = Column(ARRAY(String), default=list)  # ✅ Your Supabase definition
+    dependencies = Column(ARRAY(String), default=list)
+
+    created_by = Column(UUID(as_uuid=True), nullable=True)
+    updated_by = Column(UUID(as_uuid=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
