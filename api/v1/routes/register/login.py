@@ -57,31 +57,31 @@ async def login(identifier: dict,current_user: dict = Depends(verify_token)):
         )
         log_info(f"User response: {user_response}")
 
-        def user_tenant_operation():
-            return supabase_client.from_("user_tenant_association").select("tenant_id").eq("user_id", user_response.data[0].get("id")).execute()
+        # def user_tenant_operation():
+        #     return supabase_client.from_("user_tenant_association").select("tenant_id").eq("user_id", user_response.data[0].get("id")).execute()
 
-        user_tenant_response = await safe_supabase_operation(
-            user_tenant_operation,
-            "Failed to fetch user tenant data during login"
-        )
-        log_info(f"User tenant response: {user_tenant_response}")
+        # user_tenant_response = await safe_supabase_operation(
+        #     user_tenant_operation,
+        #     "Failed to fetch user tenant data during login"
+        # )
+        # log_info(f"User tenant response: {user_tenant_response}")
 
         # Fetch team ID from team_members table
-        def user_team_operation():
-            return supabase_client.from_("team_members").select("team_id").eq("user_id", user_response.data[0].get("id")).execute()
+        # def user_team_operation():
+        #     return supabase_client.from_("team_members").select("team_id").eq("user_id", user_response.data[0].get("id")).execute()
             
-        user_team_response = await safe_supabase_operation(
-            user_team_operation,
-            "Failed to fetch user team data"
-        )
+        # user_team_response = await safe_supabase_operation(
+        #     user_team_operation,
+        #     "Failed to fetch user team data"
+        # )
         
         # Extract team ID if available
-        team_id = None
-        if user_team_response.data and len(user_team_response.data) > 0:
-            team_id = user_team_response.data[0].get("team_id")
-            log_info(f"Found team ID for user {user_response.data[0].get('id')}: {team_id}")
-        else:
-            log_info(f"No team ID found for user {user_response.data[0].get('id')}")
+        # team_id = None
+        # if user_team_response.data and len(user_team_response.data) > 0:
+        #     team_id = user_team_response.data[0].get("team_id")
+        #     log_info(f"Found team ID for user {user_response.data[0].get('id')}: {team_id}")
+        # else:
+        #     log_info(f"No team ID found for user {user_response.data[0].get('id')}")
 
         # If user not found in our "users" table yet (first login), auto-create
         if not user_response.data or len(user_response.data) == 0:
@@ -102,16 +102,16 @@ async def login(identifier: dict,current_user: dict = Depends(verify_token)):
             await safe_supabase_operation(insert_user, "Failed to auto-create user on first login")
             user_response = {"data": [new_user]}
 
-        if not user_tenant_response.data or len(user_tenant_response.data) == 0:
-            raise HTTPException(status_code=401, detail="User tenant not found")
+        # if not user_tenant_response.data or len(user_tenant_response.data) == 0:
+        #     raise HTTPException(status_code=401, detail="User tenant not found")
 
         # Get the user data and clean the username (remove digits)
         user_data = user_response.data[0]
         user_id = user_data.get("id", "")
         raw_username = user_data.get("username", "")
         email = user_data.get("email", "")
-        tenant_data = user_tenant_response.data[0]
-        tenant_id = tenant_data.get("tenant_id", "")
+        # tenant_data = user_tenant_response.data[0]
+        # tenant_id = tenant_data.get("tenant_id", "")
         cleaned_username = re.sub(r"\d+", "", raw_username)
 
         return {
@@ -119,10 +119,10 @@ async def login(identifier: dict,current_user: dict = Depends(verify_token)):
             "formatted_username": cleaned_username,
             "username": raw_username,
             "email": email,
-            "tenant_id": tenant_id,
+            # "tenant_id": tenant_id,
             "user_id": user_id,
             "user": user_data,
-            "team_id": team_id
+            # "team_id": team_id
         }
 
     except HTTPException as he:

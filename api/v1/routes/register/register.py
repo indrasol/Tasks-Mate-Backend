@@ -76,37 +76,37 @@ async def registration_verify_token(authorization: str = Header(None)):
 
 
 # Helper function to get or create tenant
-async def get_or_create_tenant(tenant_name):
-    supabase = get_supabase_client()
-    def check_tenant():
-        return supabase.from_("tenants") \
-            .select("id") \
-            .eq("name", tenant_name) \
-            .execute()
+# async def get_or_create_tenant(tenant_name):
+#     supabase = get_supabase_client()
+#     def check_tenant():
+#         return supabase.from_("tenants") \
+#             .select("id") \
+#             .eq("name", tenant_name) \
+#             .execute()
         
-    tenant_response = await safe_supabase_operation(
-        check_tenant,
-        "Failed to check if tenant exists"
-    )
+#     tenant_response = await safe_supabase_operation(
+#         check_tenant,
+#         "Failed to check if tenant exists"
+#     )
     
-    if tenant_response.data:
-        return tenant_response.data[0]["id"]
+#     if tenant_response.data:
+#         return tenant_response.data[0]["id"]
     
-    # Create new tenant
-    def create_tenant():
-        return supabase.from_("tenants") \
-            .insert({"name": tenant_name}) \
-            .execute()
+#     # Create new tenant
+#     def create_tenant():
+#         return supabase.from_("tenants") \
+#             .insert({"name": tenant_name}) \
+#             .execute()
         
-    new_tenant_response = await safe_supabase_operation(
-        create_tenant,
-        "Failed to create tenant"
-    )
+#     new_tenant_response = await safe_supabase_operation(
+#         create_tenant,
+#         "Failed to create tenant"
+#     )
     
-    tenant_id = new_tenant_response.data[0]["id"]
-    log_info(f"Created new tenant: {tenant_name} with ID: {tenant_id}")
+#     tenant_id = new_tenant_response.data[0]["id"]
+#     log_info(f"Created new tenant: {tenant_name} with ID: {tenant_id}")
     
-    return tenant_id
+#     return tenant_id
 
 @router.post("/register")
 async def register(
@@ -152,8 +152,8 @@ async def register(
         
         # Check or create tenant (using organization_name)
        # Check if tenant exists or create a new one
-        tenant_id = await get_or_create_tenant(request_data.tenant_name)
-        log_info(f"Using tenant with ID: {tenant_id}")
+        # tenant_id = await get_or_create_tenant(request_data.tenant_name)
+        # log_info(f"Using tenant with ID: {tenant_id}")
 
         
         # Create user with provided details
@@ -179,36 +179,36 @@ async def register(
         log_info(f"Created new user with ID: {user_id}")
 
         # Check if association already exists before inserting
-        def check_association():
-            return supabase.from_("user_tenant_association") \
-                .select("*") \
-                .eq("user_id", user_id) \
-                .eq("tenant_id", tenant_id) \
-                .execute()
+        # def check_association():
+        #     return supabase.from_("user_tenant_association") \
+        #         .select("*") \
+        #         .eq("user_id", user_id) \
+        #         .eq("tenant_id", tenant_id) \
+        #         .execute()
                 
-        association_response = await safe_supabase_operation(
-            check_association,
-            "Failed to check user-tenant association"
-        )
+        # association_response = await safe_supabase_operation(
+        #     check_association,
+        #     "Failed to check user-tenant association"
+        # )
         
-        if not association_response.data:
-            # Associate user with tenant - explicitly excluding the id column
-            def associate_user_tenant():
-                return supabase.from_("user_tenant_association") \
-                    .insert({
-                        "user_id": user_id,
-                        "tenant_id": tenant_id
-                        #Returnign Minimal for better performance
-                    }, returning="minimal") \
-                    .execute()
+        # if not association_response.data:
+        #     # Associate user with tenant - explicitly excluding the id column
+        #     def associate_user_tenant():
+        #         return supabase.from_("user_tenant_association") \
+        #             .insert({
+        #                 "user_id": user_id,
+        #                 "tenant_id": tenant_id
+        #                 #Returnign Minimal for better performance
+        #             }, returning="minimal") \
+        #             .execute()
                 
-            await safe_supabase_operation(
-                associate_user_tenant,
-                "Failed to associate user with tenant"
-            )
-            log_info(f"Associated user {user_id} with tenant {tenant_id}")
+        #     await safe_supabase_operation(
+        #         associate_user_tenant,
+        #         "Failed to associate user with tenant"
+        #     )
+        #     log_info(f"Associated user {user_id} with tenant {tenant_id}")
 
-        return {"message": "User and tenant registered successfully"}
+        return {"message": "User registered successfully"}
     except Exception as e:
         # Cleanup on failure - more robust error handling
         try:
@@ -268,10 +268,10 @@ async def _cleanup_unconfirmed_user(user_id: str):
         log_info(f"User {user_id} did NOT confirm email within 1 h – cleaning up.")
 
         # Delete from user_tenant_association first (FK constraint)
-        try:
-            supabase_client.from_("user_tenant_association").delete().eq("user_id", user_id).execute()
-        except Exception:
-            pass
+        # try:
+        #     supabase_client.from_("user_tenant_association").delete().eq("user_id", user_id).execute()
+        # except Exception:
+        #     pass
 
         # Delete from users table
         try:
@@ -307,7 +307,7 @@ async def register_pending(
         log_info("Entered register_pending endpoint")
 
         # 1) Ensure tenant exists
-        tenant_id = await get_or_create_tenant(request_data.tenant_name)
+        # tenant_id = await get_or_create_tenant(request_data.tenant_name)
 
         # 2) Insert the user row if it doesn't exist yet
         new_user_data = {
@@ -323,15 +323,15 @@ async def register_pending(
         await safe_supabase_operation(insert_user, "Failed to insert pending user")
 
         # 3) Upsert association row
-        def upsert_assoc():
-            supabase = get_supabase_client()
-            return (
-                supabase.from_("user_tenant_association")
-                .upsert({"user_id": request_data.user_id, "tenant_id": tenant_id})
-                .execute()
-            )
+        # def upsert_assoc():
+        #     supabase = get_supabase_client()
+        #     return (
+        #         supabase.from_("user_tenant_association")
+        #         .upsert({"user_id": request_data.user_id, "tenant_id": tenant_id})
+        #         .execute()
+        #     )
 
-        await safe_supabase_operation(upsert_assoc, "Failed to upsert user-tenant association")
+        # await safe_supabase_operation(upsert_assoc, "Failed to upsert user-tenant association")
 
         # 4) Schedule cleanup task (detached, won't block server shutdown)
         asyncio.create_task(_cleanup_unconfirmed_user(request_data.user_id))

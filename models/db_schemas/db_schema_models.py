@@ -17,23 +17,23 @@ from pydantic import BaseModel, Field, ConfigDict
 Base = declarative_base()
 
 # Junction table for many-to-many relationship between User and Tenant
-class UserTenantAssociation(Base):
-    __tablename__ = "user_tenant_association"
-    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, nullable=False)
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"), primary_key=True, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+# class UserTenantAssociation(Base):
+#     __tablename__ = "user_tenant_association"
+#     user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, nullable=False)
+#     tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"), primary_key=True, nullable=False)
+#     created_at = Column(DateTime(timezone=True), server_default=func.now())
+#     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-class User(Base):
-    __tablename__ = "users"
-    id = Column(String, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True)
-    email = Column(String, unique=True, index=True)
-    projects = relationship("Project", back_populates="user")
-    roles = relationship("Role", back_populates="user")
-    tenants = relationship("Tenant", secondary="user_tenant_association", back_populates="users")
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+# class User(Base):
+#     __tablename__ = "users"
+#     id = Column(String, primary_key=True, index=True)
+#     username = Column(String, unique=True, index=True)
+#     email = Column(String, unique=True, index=True)
+#     projects = relationship("Project", back_populates="user")
+#     roles = relationship("Role", back_populates="user")
+#     tenants = relationship("Tenant", secondary="user_tenant_association", back_populates="users")
+#     created_at = Column(DateTime(timezone=True), server_default=func.now())
+#     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 # class Project(Base):
 #     __tablename__ = "projects"
@@ -89,79 +89,87 @@ class User(Base):
 #             "dfd_data" : self.dfd_model,
 #             "diagram_updated_at" : self.diagram_updated_at
 #         }
-class Tenant(Base):
-    __tablename__ = "tenants"
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False, unique=True)  
-    users = relationship("User", secondary="user_tenant_association", back_populates="tenants")
-    projects = relationship("Project", back_populates="tenant")
-    templates = relationship("Template", back_populates="tenant")
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    roles = relationship("Role", back_populates="tenant")
+# class Tenant(Base):
+#     __tablename__ = "tenants"
+#     id = Column(Integer, primary_key=True, index=True)
+#     name = Column(String, nullable=False, unique=True)  
+#     users = relationship("User", secondary="user_tenant_association", back_populates="tenants")
+#     projects = relationship("Project", back_populates="tenant")
+#     templates = relationship("Template", back_populates="tenant")
+#     created_at = Column(DateTime(timezone=True), server_default=func.now())
+#     roles = relationship("Role", back_populates="tenant")
 
-class Role(Base):
-    __tablename__ = "roles"
-    id = Column(Integer, primary_key=True)
-    user_id = Column(String, ForeignKey("users.id"), nullable=False)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    project_code = Column(String, ForeignKey("projects.project_code"), nullable=False)
-    role_name = Column(String)  # e.g., "admin", "editor"
-    permissions = Column(JSONB, default={"view": True, "edit": False})  # JSONB for permissions
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    user = relationship("User", back_populates="roles")
-    tenant = relationship("Tenant", back_populates="roles")
-    project = relationship("Project", back_populates="roles")
+# class Role(Base):
+#     __tablename__ = "roles"
+#     id = Column(Integer, primary_key=True)
+#     user_id = Column(String, ForeignKey("users.id"), nullable=False)
+#     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+#     project_code = Column(String, ForeignKey("projects.project_code"), nullable=False)
+#     role_name = Column(String)  # e.g., "admin", "editor"
+#     permissions = Column(JSONB, default={"view": True, "edit": False})  # JSONB for permissions
+#     created_at = Column(DateTime(timezone=True), server_default=func.now())
+#     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+#     user = relationship("User", back_populates="roles")
+#     tenant = relationship("Tenant", back_populates="roles")
+#     project = relationship("Project", back_populates="roles")
 
-class Session(Base):
-    """SQLAlchemy model for sessions table.
+# class Session(Base):
+#     """SQLAlchemy model for sessions table.
     
-    Maps to the sessions table in the database. This table tracks active sessions
-    for users and projects, allowing session resumption beyond Redis TTL expiry.
-    """
-    __tablename__ = 'sessions'
+#     Maps to the sessions table in the database. This table tracks active sessions
+#     for users and projects, allowing session resumption beyond Redis TTL expiry.
+#     """
+#     __tablename__ = 'sessions'
     
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    session_id = Column(String, nullable=False, unique=True, index=True)
-    user_id = Column(String, nullable=False, index=True)
-    project_id = Column(String, nullable=False, index=True)
-    version = Column(Integer, default=0, nullable=True)
-    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    last_accessed = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
-    is_active = Column(Boolean, nullable=False, default=True)
+#     id = Column(Integer, primary_key=True, autoincrement=True)
+#     session_id = Column(String, nullable=False, unique=True, index=True)
+#     user_id = Column(String, nullable=False, index=True)
+#     project_id = Column(String, nullable=False, index=True)
+#     version = Column(Integer, default=0, nullable=True)
+#     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+#     last_accessed = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+#     is_active = Column(Boolean, nullable=False, default=True)
     
-    def __repr__(self):
-        return f"<Session(session_id='{self.session_id}', user_id='{self.user_id}', project_id='{self.project_id}')>"
+#     def __repr__(self):
+#         return f"<Session(session_id='{self.session_id}', user_id='{self.user_id}', project_id='{self.project_id}')>"
 
-class Sessions(BaseModel):
-    """
-    Sessions table model - Tracks active sessions for users and projects.
-    This provides persistence for session IDs beyond Redis TTL expiry.
+# class Sessions(BaseModel):
+#     """
+#     Sessions table model - Tracks active sessions for users and projects.
+#     This provides persistence for session IDs beyond Redis TTL expiry.
     
-    The actual session content is stored in Redis, while this table
-    stores metadata about sessions to allow users to resume their work.
-    """
-    id: Optional[int] = Field(None, description="Auto-increment primary key")
-    session_id: str = Field(..., description="Unique session identifier (UUID)")
-    user_id: str = Field(..., description="User ID associated with the session")
-    project_id: str = Field(..., description="Project ID associated with the session")
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Session creation timestamp")
-    last_accessed: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Last time the session was accessed")
-    is_active: bool = Field(default=True, description="Whether the session is still active")
+#     The actual session content is stored in Redis, while this table
+#     stores metadata about sessions to allow users to resume their work.
+#     """
+#     id: Optional[int] = Field(None, description="Auto-increment primary key")
+#     session_id: str = Field(..., description="Unique session identifier (UUID)")
+#     user_id: str = Field(..., description="User ID associated with the session")
+#     project_id: str = Field(..., description="Project ID associated with the session")
+#     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Session creation timestamp")
+#     last_accessed: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Last time the session was accessed")
+#     is_active: bool = Field(default=True, description="Whether the session is still active")
     
-    model_config = ConfigDict(
-        from_attributes=True,         # was orm_mode
-        json_schema_extra={           # was schema_extra
-            "example": {
-                "session_id": "550e8400-e29b-41d4-a716-446655440000",
-                "user_id": "user123",
-                "project_id": "project456",
-                "created_at": "2023-09-01T12:00:00Z",
-                "last_accessed": "2023-09-01T14:30:00Z",
-                "is_active": True
-            }
-        }
-    )
+#     model_config = ConfigDict(
+#         from_attributes=True,         # was orm_mode
+#         json_schema_extra={           # was schema_extra
+#             "example": {
+#                 "session_id": "550e8400-e29b-41d4-a716-446655440000",
+#                 "user_id": "user123",
+#                 "project_id": "project456",
+#                 "created_at": "2023-09-01T12:00:00Z",
+#                 "last_accessed": "2023-09-01T14:30:00Z",
+#                 "is_active": True
+#             }
+#         }
+#     )
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(UUID(as_uuid=True), primary_key=True)
+    email = Column(String, nullable=False, unique=True)
+    name = Column(String, nullable=True)
+
 
 
 class Organization(Base):
@@ -229,4 +237,34 @@ class Task(Base):
     updated_by = Column(UUID(as_uuid=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+from sqlalchemy import Column, String, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
+
+class OrganizationMember(Base):
+    __tablename__ = "organization_members"
+
+    org_id = Column(String, ForeignKey("organizations.org_id"), primary_key=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True)
+    role = Column(String, nullable=False)
+
+    user = relationship("User", backref="org_memberships")
+
+from sqlalchemy import Column, String, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.sql import func
+from sqlalchemy.types import DateTime
+import uuid
+
+
+class OrganizationInvite(Base):
+    __tablename__ = "organization_invites"
+
+    invite_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    org_id = Column(String, ForeignKey("organizations.org_id"), nullable=False)
+    email = Column(String, nullable=False)
+    role = Column(String, nullable=False)
+    status = Column(String, default="pending")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 

@@ -22,3 +22,5 @@ from api.v1.routes.projects.routes import router as projects_router
 router.include_router(projects_router, tags=["Projects - projects_router"])
 from api.v1.routes.tasks.routes import router as tasks_router
 router.include_router(tasks_router, tags=["Tasks - tasks_router"])
+from api.v1.routes.members.routes import router as members_router
+router.include_router(members_router, tags=["Members - members_router"])
