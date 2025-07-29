@@ -19,6 +19,9 @@ app = FastAPI()
 
 ALGORITHM = "HS256"
 
+async def get_current_user(authorization: str = Header(...)):
+    return await verify_token(authorization)
+
 
 async def verify_token(authorization: str = Header(None), is_registration: bool = False):
     """

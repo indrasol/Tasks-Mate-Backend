@@ -1,12 +1,11 @@
+
 from supabase import create_client, Client
 from config.settings import SUPABASE_PROJECT_URL, SUPABASE_API_KEY
 from fastapi import HTTPException
 from utils.logger import log_info
 from functools import lru_cache
 import asyncio
-import httpx
 from concurrent.futures import ThreadPoolExecutor
-
 
 # Global thread pool for running Supabase operations asynchronously
 thread_pool = ThreadPoolExecutor()
@@ -33,4 +32,4 @@ async def safe_supabase_operation(operation, error_message="Supabase operation f
     except Exception as e:
         log_info(f"{error_message}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"{error_message}: {str(e)}")
-
+    

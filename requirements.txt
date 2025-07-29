@@ -13,3 +13,5 @@ PyJWT==2.8.0
 # Database
 alembic==1.13.1
 supabase==2.15.0  # Python client for Supabase
+
+asyncpg==0.30.0

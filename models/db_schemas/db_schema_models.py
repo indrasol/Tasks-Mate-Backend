@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, ARRAY, JSON, Float, Date, Boolean
+import uuid
+from sqlalchemy import UUID, Column, Integer, String, ForeignKey, DateTime, Text, ARRAY, JSON, Float, Date, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Enum as SQLAlchemyEnum
@@ -161,4 +162,22 @@ class Sessions(BaseModel):
             }
         }
     )
+
+
+class Organization(Base):
+    __tablename__ = "organizations"
+
+    org_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    logo = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    org_metadata = Column("metadata", JSONB, default=dict)
+    is_deleted = Column(Boolean, default=False)
+    created_by = Column(UUID(as_uuid=True), nullable=True)
+    updated_by = Column(UUID(as_uuid=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    delete_reason = Column(Text, nullable=True)
 

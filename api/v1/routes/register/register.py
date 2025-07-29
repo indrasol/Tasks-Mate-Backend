@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body, BackgroundTasks
 from core.db.supabase_db import get_supabase_client, safe_supabase_operation
 # from sqlalchemy import insert
 import re
-from models.registration_models import RegisterRequest
+from models.schemas.registration_models import RegisterRequest
 from utils.logger import log_info
 from services.auth_handler import verify_token, verify_api_key
 from config.settings import SUPABASE_SECRET_KEY
