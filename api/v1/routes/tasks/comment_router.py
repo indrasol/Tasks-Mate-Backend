@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Optional
+from fastapi import APIRouter, Depends, Query, HTTPException
 from models.schemas.task_comment import TaskCommentCreate, TaskCommentUpdate, TaskCommentInDB
-from services.task_comment_service import create_task_comment, get_task_comment, update_task_comment, delete_task_comment
+from services.task_comment_service import create_task_comment, get_task_comment, update_task_comment, delete_task_comment, get_comments_for_task
 from services.auth_handler import verify_token
 from services.rbac import get_project_role
 
@@ -18,6 +19,20 @@ async def create_comment(comment: TaskCommentCreate, project_id: str, user=Depen
         raise HTTPException(status_code=403, detail="Not authorized")
     result = await create_task_comment({**comment.dict(), "created_by": user["id"]})
     return result.data[0]
+
+@router.get("/", response_model=List[TaskCommentInDB])
+async def list_task_comments(
+    task_id: str = Query(...),
+    search: Optional[str] = Query(None),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    sort_by: str = Query("created_at"),
+    sort_order: str = Query("asc"),
+    user=Depends(verify_token)
+):
+    # Optionally: check user is a member of the project for this task
+    # (Assume get_project_id_for_task exists or add logic as needed)
+    return await get_comments_for_task(task_id, search=search, limit=limit, offset=offset, sort_by=sort_by, sort_order=sort_order)
 
 @router.get("/{comment_id}", response_model=TaskCommentInDB)
 async def read_comment(comment_id: str, project_id: str, user=Depends(verify_token), role=Depends(project_rbac)):

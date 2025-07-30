@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
 from models.schemas.project_resource import ProjectResourceCreate, ProjectResourceUpdate, ProjectResourceInDB
-from services.project_resource_service import create_project_resource, get_project_resource, update_project_resource, delete_project_resource
+from services.project_resource_service import create_project_resource, get_project_resource, update_project_resource, delete_project_resource, get_resources_for_project
 from services.auth_handler import verify_token
 from services.rbac import get_project_role
 
@@ -18,6 +19,22 @@ async def create_resource(resource: ProjectResourceCreate, project_id: str, user
         raise HTTPException(status_code=403, detail="Not authorized")
     result = await create_project_resource({**resource.dict(), "created_by": user["id"]})
     return result.data[0]
+
+@router.get("/", response_model=List[ProjectResourceInDB])
+async def list_project_resources(
+    project_id: str = Query(...),
+    search: Optional[str] = Query(None),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    sort_by: str = Query("resource_type"),
+    sort_order: str = Query("asc"),
+    resource_type: Optional[str] = Query(None),
+    user=Depends(verify_token)
+):
+    role = await get_project_role(user["id"], project_id)
+    if not role:
+        raise HTTPException(status_code=403, detail="Not a member of this project")
+    return await get_resources_for_project(project_id, search=search, limit=limit, offset=offset, sort_by=sort_by, sort_order=sort_order, resource_type=resource_type)
 
 @router.get("/{resource_id}", response_model=ProjectResourceInDB)
 async def read_resource(resource_id: str, project_id: str, user=Depends(verify_token), role=Depends(project_rbac)):

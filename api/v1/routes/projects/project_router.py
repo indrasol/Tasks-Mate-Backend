@@ -1,6 +1,7 @@
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from models.schemas.project import ProjectCreate, ProjectUpdate, ProjectInDB
-from services.project_service import create_project, get_project, update_project, delete_project
+from services.project_service import create_project, get_project, update_project, delete_project, get_projects_for_user
 from services.auth_handler import verify_token
 from services.rbac import get_project_role
 from services.project_member_service import create_project_member
@@ -28,6 +29,13 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
         "created_by": user["id"]
     })
     return result.data[0]
+
+@router.get("/", response_model=List[ProjectInDB])
+async def list_user_projects(user=Depends(verify_token)):
+    """
+    List all projects where the current user is a member.
+    """
+    return await get_projects_for_user(user["id"])
 
 @router.get("/{project_id}", response_model=ProjectInDB)
 async def read_project(project_id: str, user=Depends(verify_token), role=Depends(project_rbac)):

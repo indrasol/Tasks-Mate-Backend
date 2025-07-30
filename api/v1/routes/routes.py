@@ -16,6 +16,7 @@ from api.v1.routes.projects.resource_router import router as project_resource_ro
 from api.v1.routes.tasks.attachment_router import router as task_attachment_router
 from api.v1.routes.tasks.comment_router import router as task_comment_router
 from api.v1.routes.tasks.history_router import router as task_history_router
+from api.v1.routes.projects.stats_router import router as project_stats_router
 
 
 router = APIRouter()
@@ -36,3 +37,4 @@ router.include_router(project_resource_router, prefix="/project-resources", tags
 router.include_router(task_attachment_router, prefix="/task-attachments", tags=["Task Attachments"])
 router.include_router(task_comment_router, prefix="/task-comments", tags=["Task Comments"])
 router.include_router(task_history_router, prefix="/task-history", tags=["Task History"])
+router.include_router(project_stats_router, prefix="/project-stats", tags=["Project Stats"])

@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
 from models.schemas.task import TaskCreate, TaskUpdate, TaskInDB
-from services.task_service import create_task, get_task, update_task, delete_task
+from services.task_service import create_task, get_task, update_task, delete_task, get_all_tasks, get_tasks_for_project
 from services.auth_handler import verify_token
 from services.rbac import get_project_role
 
@@ -19,6 +20,24 @@ async def create_task_route(task: TaskCreate, user=Depends(verify_token), role=D
         raise HTTPException(status_code=403, detail="Not authorized")
     result = await create_task({**task.dict(), "created_by": user["id"]})
     return result.data[0]
+
+@router.get("/", response_model=List[TaskInDB])
+async def list_all_tasks(
+    user=Depends(verify_token),
+    project_id: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    sort_by: str = Query("title"),
+    sort_order: str = Query("asc"),
+    status: Optional[str] = Query(None)
+):
+    if project_id:
+        role = await get_project_role(user["id"], project_id)
+        if not role:
+            raise HTTPException(status_code=403, detail="Not a member of this project")
+        return await get_tasks_for_project(project_id, search=search, limit=limit, offset=offset, sort_by=sort_by, sort_order=sort_order, status=status)
+    return await get_all_tasks(search=search, limit=limit, offset=offset, sort_by=sort_by, sort_order=sort_order, status=status)
 
 @router.get("/{task_id}", response_model=TaskInDB)
 async def read_task(task_id: str, user=Depends(verify_token), role=Depends(project_rbac)):

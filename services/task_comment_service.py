@@ -23,3 +23,12 @@ async def delete_task_comment(comment_id: str):
     def op():
         return supabase.from_("task_comments").delete().eq("comment_id", comment_id).execute()
     return await safe_supabase_operation(op, "Failed to delete task comment")
+
+async def get_comments_for_task(task_id, search=None, limit=20, offset=0, sort_by="created_at", sort_order="asc"):
+    supabase = get_supabase_client()
+    query = supabase.from_("task_comments").select("*").eq("task_id", task_id)
+    if search:
+        query = query.ilike("comment", f"%{search}%")
+    query = query.order(sort_by, desc=(sort_order == "desc"))
+    result = query.range(offset, offset + limit - 1).execute()
+    return result.data

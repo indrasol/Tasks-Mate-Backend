@@ -1,6 +1,7 @@
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from models.schemas.organization import OrganizationCreate, OrganizationUpdate, OrganizationInDB
-from services.organization_service import create_organization, get_organization, update_organization, delete_organization
+from services.organization_service import create_organization, get_organization, update_organization, delete_organization, get_organizations_for_user
 from services.auth_handler import verify_token
 from services.rbac import get_org_role
 from services.organization_member_service import create_organization_member
@@ -28,6 +29,13 @@ async def create_org(org: OrganizationCreate, user=Depends(verify_token)):
         "created_by": user["id"]
     })
     return result.data[0]
+
+@router.get("/", response_model=List[OrganizationInDB])
+async def list_user_organizations(user=Depends(verify_token)):
+    """
+    List all organizations the user is a member of or invited to.
+    """
+    return await get_organizations_for_user(user["id"], user.get("email"))
 
 @router.get("/{org_id}", response_model=OrganizationInDB)
 async def read_org(org_id: str, user=Depends(verify_token), role=Depends(org_rbac)):

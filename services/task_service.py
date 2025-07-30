@@ -23,3 +23,25 @@ async def delete_task(task_id: str):
     def op():
         return supabase.from_("tasks").delete().eq("task_id", task_id).execute()
     return await safe_supabase_operation(op, "Failed to delete task")
+
+async def get_all_tasks(search=None, limit=20, offset=0, sort_by="title", sort_order="asc", status=None):
+    supabase = get_supabase_client()
+    query = supabase.from_("tasks").select("*")
+    if search:
+        query = query.ilike("title", f"%{search}%")
+    if status:
+        query = query.eq("status", status)
+    query = query.order(sort_by, desc=(sort_order == "desc"))
+    result = query.range(offset, offset + limit - 1).execute()
+    return result.data
+
+async def get_tasks_for_project(project_id, search=None, limit=20, offset=0, sort_by="title", sort_order="asc", status=None):
+    supabase = get_supabase_client()
+    query = supabase.from_("tasks").select("*").eq("project_id", project_id)
+    if search:
+        query = query.ilike("title", f"%{search}%")
+    if status:
+        query = query.eq("status", status)
+    query = query.order(sort_by, desc=(sort_order == "desc"))
+    result = query.range(offset, offset + limit - 1).execute()
+    return result.data

@@ -5,12 +5,12 @@ from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import JSONB, ARRAY
 from sqlalchemy import Date
-from constants import ProjectPriority, ProjectStatus
 from uuid import uuid4
 from enum import Enum
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any, Union
 from pydantic import BaseModel, Field, ConfigDict
+from models.enums import RoleEnum, ProjectStatusEnum, TaskStatusEnum, PriorityEnum, DesignationEnum, InviteStatusEnum
 
 from sqlalchemy import Column, String, Text, Boolean, DateTime, Date, ForeignKey, JSON, ARRAY
 from sqlalchemy.dialects.postgresql import UUID
@@ -80,7 +80,7 @@ class OrganizationInvite(Base):
     designation = Column(UUID(as_uuid=True), ForeignKey("designations.designation_id"))
     role = Column(UUID(as_uuid=True), ForeignKey("roles.role_id"))
     invited_by = Column(UUID(as_uuid=True))
-    invite_status = Column(Text, default="pending")
+    invite_status = Column(SQLAlchemyEnum(InviteStatusEnum), default=InviteStatusEnum.PENDING)
     sent_at = Column(DateTime)
     expires_at = Column(DateTime)
     created_at = Column(DateTime)
@@ -94,6 +94,7 @@ class OrganizationMember(Base):
     org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.org_id"), primary_key=True)
     designation = Column(UUID(as_uuid=True), ForeignKey("designations.designation_id"))
     role = Column(UUID(as_uuid=True), ForeignKey("roles.role_id"))
+    permissions = Column(JSON, default=dict)
     invited_by = Column(UUID(as_uuid=True))
     is_active = Column(Boolean, default=True)
     invited_at = Column(DateTime)
@@ -102,6 +103,8 @@ class OrganizationMember(Base):
     deleted_at = Column(DateTime)
     delete_reason = Column(Text)
     deleted_by = Column(UUID(as_uuid=True))
+    created_by = Column(UUID(as_uuid=True))
+    updated_by = Column(UUID(as_uuid=True))
 
 class Project(Base):
     __tablename__ = "projects"
@@ -110,8 +113,8 @@ class Project(Base):
     name = Column(Text, nullable=False)
     description = Column(Text)
     metadata = Column(JSON, default=dict)
-    status = Column(Text, default="not_started")
-    priority = Column(Text, default="none")
+    status = Column(SQLAlchemyEnum(ProjectStatusEnum), default=ProjectStatusEnum.NOT_STARTED)
+    priority = Column(SQLAlchemyEnum(PriorityEnum), default=PriorityEnum.NONE)
     start_date = Column(Date)
     end_date = Column(Date)
     created_by = Column(UUID(as_uuid=True))
@@ -128,6 +131,7 @@ class ProjectMember(Base):
     user_id = Column(UUID(as_uuid=True), primary_key=True)
     designation = Column(UUID(as_uuid=True), ForeignKey("designations.designation_id"))
     role = Column(UUID(as_uuid=True), ForeignKey("roles.role_id"))
+    permissions = Column(JSON, default=dict)
     created_by = Column(UUID(as_uuid=True))
     updated_by = Column(UUID(as_uuid=True))
     is_active = Column(Boolean, default=True)
@@ -135,6 +139,7 @@ class ProjectMember(Base):
     updated_at = Column(DateTime)
     deleted_at = Column(DateTime)
     delete_reason = Column(Text)
+    deleted_by = Column(UUID(as_uuid=True))
 
 class ProjectResource(Base):
     __tablename__ = "project_resources"
@@ -159,10 +164,10 @@ class Task(Base):
     dependencies = Column(ARRAY(Text), default=list)
     title = Column(Text, nullable=False)
     description = Column(Text)
-    status = Column(Text, default="not_started")
+    status = Column(SQLAlchemyEnum(TaskStatusEnum), default=TaskStatusEnum.NOT_STARTED)
     assignee_id = Column(UUID(as_uuid=True))
     due_date = Column(Date)
-    priority = Column(Text, default="none")
+    priority = Column(SQLAlchemyEnum(PriorityEnum), default=PriorityEnum.NONE)
     tags = Column(ARRAY(Text), default=list)
     metadata = Column(ARRAY(JSON), default=list)
     created_by = Column(UUID(as_uuid=True))
@@ -275,4 +280,24 @@ class Sessions(BaseModel):
             }
         }
     )
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), nullable=False)
+    action = Column(String, nullable=False)
+    resource_type = Column(String, nullable=False)
+    resource_id = Column(String, nullable=False)
+    timestamp = Column(DateTime, default=func.now())
+    details = Column(JSON, default=dict)
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), nullable=False)
+    type = Column(String, nullable=False)
+    message = Column(String, nullable=False)
+    resource_id = Column(String)
+    read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=func.now())
 

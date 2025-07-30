@@ -1,0 +1,41 @@
+Column	Tables	Values
+role	"roles
+organizations_members
+project_members"	"owner',
+'member'"
+project_status	status	"planning',
+'in_progress',
+'not_started',
+'completed',
+'archived',
+'on_hold'"
+task_status	"tasks
+"	"not_started',
+'in_progress',
+'blocked',
+'completed',
+'archived',
+'on_hold'"
+priority	"projects
+tasks"	"high',
+'medium',
+'low',
+'none',
+'critical'"
+designations	"designations
+project_members"	"developer',
+'designer',
+'qa',
+'product_manager',
+'devops_engineer',
+'devops',
+'analyst',
+'team_lead',
+'tester',
+'director',
+'manager',
+'ui_engineer'"
+invite_status	organization_invites	"pending',
+'expired',
+'cancelled',
+'accepted'"
