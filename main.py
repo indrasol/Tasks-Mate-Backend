@@ -107,10 +107,10 @@ origins = [
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # Allows specific origins
+    allow_origins=["*"],  # Change to your frontend domain in production
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all HTTP methods (GET, POST, etc.)
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # # Set up health monitoring middleware (needs to be after CORS middleware)

@@ -12,6 +12,11 @@ from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any, Union
 from pydantic import BaseModel, Field, ConfigDict
 
+from sqlalchemy import Column, String, Text, Boolean, DateTime, Date, ForeignKey, JSON, ARRAY
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
+import uuid
+
 # Base class for declarative models
 Base = declarative_base()
 
@@ -34,60 +39,169 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+class Organization(Base):
+    __tablename__ = "organizations"
+    org_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(Text, nullable=False)
+    description = Column(Text)
+    logo = Column(Text)
+    email = Column(Text)
+    metadata = Column(JSON, default=dict)
+    created_by = Column(UUID(as_uuid=True))
+    updated_by = Column(UUID(as_uuid=True))
+    is_deleted = Column(Boolean, default=False)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+    deleted_at = Column(DateTime)
+    delete_reason = Column(Text)
+
+class Role(Base):
+    __tablename__ = "roles"
+    role_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(Text, nullable=False)
+    permissions = Column(JSON, default=dict)
+    updated_at = Column(DateTime)
+
+class Designation(Base):
+    __tablename__ = "designations"
+    designation_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(Text, nullable=False)
+    metadata = Column(JSON, default=dict)
+    created_by = Column(UUID(as_uuid=True))
+    updated_by = Column(UUID(as_uuid=True))
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+
+class OrganizationInvite(Base):
+    __tablename__ = "organization_invites"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.org_id"), nullable=False)
+    email = Column(Text, nullable=False)
+    designation = Column(UUID(as_uuid=True), ForeignKey("designations.designation_id"))
+    role = Column(UUID(as_uuid=True), ForeignKey("roles.role_id"))
+    invited_by = Column(UUID(as_uuid=True))
+    invite_status = Column(Text, default="pending")
+    sent_at = Column(DateTime)
+    expires_at = Column(DateTime)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+    is_cancelled = Column(Boolean, default=False)
+    cancel_date = Column(DateTime)
+
+class OrganizationMember(Base):
+    __tablename__ = "organization_members"
+    user_id = Column(UUID(as_uuid=True), primary_key=True)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.org_id"), primary_key=True)
+    designation = Column(UUID(as_uuid=True), ForeignKey("designations.designation_id"))
+    role = Column(UUID(as_uuid=True), ForeignKey("roles.role_id"))
+    invited_by = Column(UUID(as_uuid=True))
+    is_active = Column(Boolean, default=True)
+    invited_at = Column(DateTime)
+    accepted_at = Column(DateTime)
+    updated_at = Column(DateTime)
+    deleted_at = Column(DateTime)
+    delete_reason = Column(Text)
+    deleted_by = Column(UUID(as_uuid=True))
+
 class Project(Base):
     __tablename__ = "projects"
-    id = Column(Integer, primary_key=True, index=True)
-    project_code = Column(String, unique=True, index=True, nullable=False)
-    user_id = Column(String, ForeignKey("users.id"), nullable=False)
-    roles = relationship("Role", back_populates="project")
-    name = Column(String, nullable=False)
-    description = Column(String, nullable=True)
-    status = Column(SQLAlchemyEnum(ProjectStatus), default=ProjectStatus.NOT_STARTED, nullable=False)
-    priority = Column(SQLAlchemyEnum(ProjectPriority), nullable=True)
-    created_date = Column(Date, server_default=func.current_date(), nullable=False)  # Default to current date
-    due_date = Column(Date, nullable=True)  
-    creator = Column(String, nullable=False)  
-    assigned_to = Column(String, nullable=True)  
-    threat_model_id = Column(String, nullable=True, index=True)
-    dfd_data = Column(ARRAY(JSONB), default=[])
-    domain = Column(String, nullable=True)  
-    template_type = Column(String, nullable=True)  
-    imported_file = Column(String, nullable=True)  
-    user = relationship("User", back_populates="projects")
-    conversation_history = Column(ARRAY(JSONB), default=[])
-    diagram_state = Column(JSONB, default={"nodes": [], "edges": []})
-    version = Column(Integer, default=0, nullable=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
-    tenant = relationship("Tenant", back_populates="projects")
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    diagram_updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    project_id = Column(Text, primary_key=True)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.org_id"), nullable=False)
+    name = Column(Text, nullable=False)
+    description = Column(Text)
+    metadata = Column(JSON, default=dict)
+    status = Column(Text, default="not_started")
+    priority = Column(Text, default="none")
+    start_date = Column(Date)
+    end_date = Column(Date)
+    created_by = Column(UUID(as_uuid=True))
+    updated_by = Column(UUID(as_uuid=True))
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+    deleted_at = Column(DateTime)
+    delete_reason = Column(Text)
 
-    def to_dict(self):
-        """Convert project to a dictionary for JSON response."""
-        return {
-            "id": self.project_code,
-            "name": self.name,
-            "description": self.description,
-            "status": self.status.value if self.status else None,
-            "priority": self.priority.value if self.priority else None, 
-            "created_date": self.created_date.isoformat() if self.created_date else None,
-            "due_date": self.due_date.isoformat() if self.due_date else None,
-            "creator": self.creator,
-            "assigned_to": self.assigned_to,
-            "domain": self.domain,
-            "template_type": self.template_type,
-            "imported_file": self.imported_file,
-            "tenant_id": self.tenant_id,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-            "conversation_history": self.conversation_history,
-            "diagram_state": self.diagram_state,
-            "version": self.version,
-            "threat_model_id" : self.threat_model_id,
-            "dfd_data" : self.dfd_model,
-            "diagram_updated_at" : self.diagram_updated_at
-        }
+class ProjectMember(Base):
+    __tablename__ = "project_members"
+    project_id = Column(Text, ForeignKey("projects.project_id"), primary_key=True)
+    user_id = Column(UUID(as_uuid=True), primary_key=True)
+    designation = Column(UUID(as_uuid=True), ForeignKey("designations.designation_id"))
+    role = Column(UUID(as_uuid=True), ForeignKey("roles.role_id"))
+    created_by = Column(UUID(as_uuid=True))
+    updated_by = Column(UUID(as_uuid=True))
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+    deleted_at = Column(DateTime)
+    delete_reason = Column(Text)
+
+class ProjectResource(Base):
+    __tablename__ = "project_resources"
+    resource_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    project_id = Column(Text, ForeignKey("projects.project_id"), nullable=False)
+    name = Column(Text, nullable=False)
+    url = Column(Text)
+    resource_type = Column(Text)
+    is_active = Column(Boolean, default=True)
+    created_by = Column(UUID(as_uuid=True))
+    updated_by = Column(UUID(as_uuid=True))
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+    deleted_at = Column(DateTime)
+    delete_reason = Column(Text)
+
+class Task(Base):
+    __tablename__ = "tasks"
+    task_id = Column(Text, primary_key=True)
+    project_id = Column(Text, ForeignKey("projects.project_id"), nullable=False)
+    sub_tasks = Column(ARRAY(Text), default=list)
+    dependencies = Column(ARRAY(Text), default=list)
+    title = Column(Text, nullable=False)
+    description = Column(Text)
+    status = Column(Text, default="not_started")
+    assignee_id = Column(UUID(as_uuid=True))
+    due_date = Column(Date)
+    priority = Column(Text, default="none")
+    tags = Column(ARRAY(Text), default=list)
+    metadata = Column(ARRAY(JSON), default=list)
+    created_by = Column(UUID(as_uuid=True))
+    updated_by = Column(UUID(as_uuid=True))
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+
+class TaskAttachment(Base):
+    __tablename__ = "task_attachments"
+    attachment_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    task_id = Column(Text, nullable=False)
+    title = Column(Text)
+    name = Column(Text)
+    url = Column(Text)
+    uploaded_by = Column(UUID(as_uuid=True))
+    uploaded_at = Column(DateTime)
+    deleted_at = Column(DateTime)
+    deleted_by = Column(UUID(as_uuid=True))
+    is_inline = Column(Boolean, default=False)
+
+class TaskComment(Base):
+    __tablename__ = "task_comments"
+    comment_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    task_id = Column(Text, nullable=False)
+    title = Column(Text)
+    user_id = Column(UUID(as_uuid=True))
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+
+class TaskHistory(Base):
+    __tablename__ = "tasks_history"
+    history_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    task_id = Column(Text, nullable=False)
+    title = Column(Text)
+    metadata = Column(ARRAY(JSON), default=list)
+    hash_id = Column(Text)
+    updated_at = Column(DateTime)
+
 class Tenant(Base):
     __tablename__ = "tenants"
     id = Column(Integer, primary_key=True, index=True)
