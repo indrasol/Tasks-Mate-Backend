@@ -17,16 +17,21 @@ router.include_router(register_router, tags=["Register - sign_up_router"])
 router.include_router(login_router, tags=["Register - login_router"])
 router.include_router(auth_router, tags=["Register - auth_router"])
 
-router.include_router(organizations_router, tags=["Organizations - organizations_router"])
-from api.v1.routes.projects.routes import router as projects_router
-router.include_router(projects_router, tags=["Projects - projects_router"])
-from api.v1.routes.tasks.routes import router as tasks_router
-router.include_router(tasks_router, tags=["Tasks - tasks_router"])
-from api.v1.routes.members.routes import router as members_router
-router.include_router(members_router, tags=["Members - members_router"])
-from api.v1.routes.project_teams.routes import router as project_teams_router
-router.include_router(project_teams_router, tags=["Project Teams - project_teams_router"])
-from api.v1.routes.task_tags.routes import router as task_tags_router
-router.include_router(task_tags_router, tags=["Task Tags - task_tags_router"])
-from api.v1.routes.task_comments.routes import router as task_comments_router
-router.include_router(task_comments_router, tags=["Task Comments - task_comments_router"])
+# router.include_router(organizations_router, tags=["Organizations - organizations_router"])
+# from api.v1.routes.projects.routes import router as projects_router
+# router.include_router(projects_router, tags=["Projects - projects_router"])
+# from api.v1.routes.tasks.routes import router as tasks_router
+# router.include_router(tasks_router, tags=["Tasks - tasks_router"])
+# from api.v1.routes.members.routes import router as members_router
+# router.include_router(members_router, tags=["Members - members_router"])
+# from api.v1.routes.project_teams.routes import router as project_teams_router
+# router.include_router(project_teams_router, tags=["Project Teams - project_teams_router"])
+# from api.v1.routes.task_tags.routes import router as task_tags_router
+# router.include_router(task_tags_router, tags=["Task Tags - task_tags_router"])
+# from api.v1.routes.task_comments.routes import router as task_comments_router
+# router.include_router(task_comments_router, tags=["Task Comments - task_comments_router"])
+# from api.v1.routes.task_attachments.routes import router as task_attachments_router
+# router.include_router(task_attachments_router, tags=["Task Attachments - task_attachments_router"])
+# from api.v1.routes.task_attachments.supabase_presigned_upload import router as supabase_presigned_upload_router
+# router.include_router(supabase_presigned_upload_router, tags=["Supabase Presigned Upload - supabase_presigned_upload_router"])
+
