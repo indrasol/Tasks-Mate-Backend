@@ -302,3 +302,19 @@ task_tags_table = Table(
     Column("task_id", String, ForeignKey("tasks.task_id"), primary_key=True),
     Column("tag_id", UUID(as_uuid=True), ForeignKey("tags.id"), primary_key=True),
 )
+
+
+from sqlalchemy import Column, String, ForeignKey, DateTime, Text
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.sql import func
+import uuid
+
+
+class TaskComment(Base):
+    __tablename__ = "task_comments"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    task_id = Column(String, ForeignKey("tasks.task_id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

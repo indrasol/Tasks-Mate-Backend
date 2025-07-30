@@ -28,3 +28,5 @@ from api.v1.routes.project_teams.routes import router as project_teams_router
 router.include_router(project_teams_router, tags=["Project Teams - project_teams_router"])
 from api.v1.routes.task_tags.routes import router as task_tags_router
 router.include_router(task_tags_router, tags=["Task Tags - task_tags_router"])
+from api.v1.routes.task_comments.routes import router as task_comments_router
+router.include_router(task_comments_router, tags=["Task Comments - task_comments_router"])
