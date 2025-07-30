@@ -268,3 +268,15 @@ class OrganizationInvite(Base):
     status = Column(String, default="pending")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+from sqlalchemy import Column, String, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
+
+class ProjectTeam(Base):
+    __tablename__ = "project_team"
+
+    project_id = Column(String, ForeignKey("projects.project_id"), primary_key=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True)
+    role = Column(String, nullable=False)
+
+    user = relationship("User", backref="project_teams")
