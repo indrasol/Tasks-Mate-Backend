@@ -4,7 +4,7 @@ from uuid import UUID
 from services.auth_handler import get_current_user
 from models.schemas.project_team import *
 from services import project_team as project_team_service
-from core.db.supabase_db import get_db_session
+from core.db.async_session import get_db_session
 
 router = APIRouter(prefix="/api", tags=["Project Team"])
 

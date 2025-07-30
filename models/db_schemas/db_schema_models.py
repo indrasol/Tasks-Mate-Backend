@@ -280,3 +280,25 @@ class ProjectTeam(Base):
     role = Column(String, nullable=False)
 
     user = relationship("User", backref="project_teams")
+    
+from sqlalchemy import Column, String, ForeignKey, Table
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
+import uuid
+
+class Tag(Base):
+    __tablename__ = "tags"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String, nullable=False)
+    color = Column(String, nullable=True)
+
+    tasks = relationship("Task", secondary="task_tags", back_populates="tags")
+
+
+task_tags_table = Table(
+    "task_tags",
+    Base.metadata,
+    Column("task_id", String, ForeignKey("tasks.task_id"), primary_key=True),
+    Column("tag_id", UUID(as_uuid=True), ForeignKey("tags.id"), primary_key=True),
+)
