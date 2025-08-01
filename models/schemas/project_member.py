@@ -15,7 +15,7 @@ class ProjectMemberBase(BaseModel):
     updated_at: Optional[datetime] = Field(None, description="Last update timestamp")
     deleted_at: Optional[datetime] = Field(None, description="When the member was deleted")
     delete_reason: Optional[str] = Field(None, description="Reason for deletion")
-    deleted_by: Optional[UUID] = Field(None, description="Who deleted the member")
+    # deleted_by: Optional[UUID] = Field(None, description="Who deleted the member")
 
 class ProjectMemberCreate(ProjectMemberBase):
     pass

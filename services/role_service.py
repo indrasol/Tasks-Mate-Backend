@@ -12,6 +12,13 @@ async def get_role(role_id: str):
         return supabase.from_("roles").select("*").eq("role_id", role_id).single().execute()
     return await safe_supabase_operation(op, "Failed to fetch role")
 
+
+async def get_role_by_name(role_name: str):
+    supabase = get_supabase_client()
+    def op():
+        return supabase.from_("roles").select("*").eq("name", role_name).limit(1).execute()
+    return await safe_supabase_operation(op, "Failed to fetch role by name")
+
 async def update_role(role_id: str, data: dict):
     supabase = get_supabase_client()
     def op():

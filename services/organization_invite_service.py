@@ -2,7 +2,7 @@ from core.db.supabase_db import get_supabase_client, safe_supabase_operation
 
 async def create_organization_invite(data: dict):
     supabase = get_supabase_client()
-    def op():
+    def op():        
         return supabase.from_("organization_invites").insert(data).execute()
     return await safe_supabase_operation(op, "Failed to create organization invite")
 
@@ -33,4 +33,10 @@ async def get_invites_for_org(org_id, search=None, limit=20, offset=0, sort_by="
         query = query.eq("email", email)
     query = query.order(sort_by, desc=(sort_order == "desc"))
     result = query.range(offset, offset + limit - 1).execute()
+    return result.data
+
+async def get_invites_for_user(email:str):
+    supabase = get_supabase_client()
+    query = supabase.from_("organization_invites").select("*").eq("email", email)   
+    result = query.execute()
     return result.data

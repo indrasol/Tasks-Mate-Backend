@@ -139,7 +139,7 @@ class ProjectMember(Base):
     updated_at = Column(DateTime)
     deleted_at = Column(DateTime)
     delete_reason = Column(Text)
-    deleted_by = Column(UUID(as_uuid=True))
+    # deleted_by = Column(UUID(as_uuid=True))
 
 class ProjectResource(Base):
     __tablename__ = "project_resources"

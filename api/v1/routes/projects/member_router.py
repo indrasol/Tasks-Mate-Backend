@@ -1,23 +1,28 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, HTTPException
+from api.v1.routes.projects.proj_rbac import project_rbac
 from models.schemas.project_member import ProjectMemberCreate, ProjectMemberUpdate, ProjectMemberInDB
 from services.project_member_service import create_project_member, get_project_member, update_project_member, delete_project_member, get_members_for_project
 from services.auth_handler import verify_token
 from services.rbac import get_project_role
+from services.utils import inject_audit_fields
 
 router = APIRouter()
 
-async def project_rbac(project_id: str, user=Depends(verify_token)):
-    role = await get_project_role(user["id"], project_id)
-    if not role:
-        raise HTTPException(status_code=403, detail="Not a member of this project")
-    return role
+# async def project_rbac(project_id: str, user=Depends(verify_token)):
+#     role = await get_project_role(user["id"], project_id)
+#     if not role:
+#         raise HTTPException(status_code=403, detail="Not a member of this project")
+#     return role
 
 @router.post("/", response_model=ProjectMemberInDB)
 async def create_member(member: ProjectMemberCreate, user=Depends(verify_token), role=Depends(project_rbac)):
     if role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Not authorized")
-    result = await create_project_member({**member.dict(), "created_by": user["id"]})
+    
+    data = inject_audit_fields(member.dict(),user["id"],"create")
+
+    result = await create_project_member(data)
     return result.data[0]
 
 @router.get("/", response_model=List[ProjectMemberInDB])
@@ -26,7 +31,7 @@ async def list_project_members(
     search: Optional[str] = Query(None),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    sort_by: str = Query("user_name"),
+    sort_by: str = Query("updated_at"),
     sort_order: str = Query("asc"),
     role: Optional[str] = Query(None),
     user=Depends(verify_token)

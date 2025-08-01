@@ -1,6 +1,5 @@
 from typing import List, Optional
-from core.db.supabase_db import supabase_client
-from services.logging import safe_supabase_operation
+from core.db.supabase_db import get_supabase_client as supabase_client, safe_supabase_operation
 from models.schemas.project_stats import ProjectStatsInDB
 
 async def get_project_stats(project_id: str) -> Optional[ProjectStatsInDB]:

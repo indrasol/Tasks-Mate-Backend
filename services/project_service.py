@@ -1,8 +1,11 @@
+import uuid
 from core.db.supabase_db import get_supabase_client, safe_supabase_operation
 
 async def create_project(data: dict):
     supabase = get_supabase_client()
     def op():
+        data["project_id"] = f"P-{uuid.uuid4().hex[:8]}"
+
         return supabase.from_("projects").insert(data).execute()
     return await safe_supabase_operation(op, "Failed to create project")
 
@@ -24,11 +27,11 @@ async def delete_project(project_id: str):
         return supabase.from_("projects").delete().eq("project_id", project_id).execute()
     return await safe_supabase_operation(op, "Failed to delete project")
 
-async def get_projects_for_user(user_id):
+async def get_projects_for_user(user_id, org_id):
     supabase = get_supabase_client()
     result = supabase.from_("project_members").select("project_id").eq("user_id", user_id).execute()
     project_ids = [row["project_id"] for row in result.data]
     if not project_ids:
         return []
-    projects = supabase.from_("projects").select("*").in_("project_id", project_ids).execute()
+    projects = supabase.from_("projects").select("*").in_("project_id", project_ids).eq("org_id", org_id).execute()
     return projects.data

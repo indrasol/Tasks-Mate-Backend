@@ -4,6 +4,7 @@ from enum import Enum
 class RoleEnum(str, Enum):
     """Role enum for organization and project members"""
     OWNER = "owner"
+    ADMIN = "admin"
     MEMBER = "member"
 
 

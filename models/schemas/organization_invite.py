@@ -24,9 +24,9 @@ class OrganizationInviteUpdate(OrganizationInviteBase):
 
 class OrganizationInviteInDB(OrganizationInviteBase):
     id: UUID
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
-    accepted_by: Optional[UUID]
-    accepted_at: Optional[datetime]
+    created_at: Optional[datetime] = Field(default=None, description="Created timestamp")
+    updated_at: Optional[datetime] = Field(default=None, description="Last updated timestamp")
+    accepted_by: Optional[UUID] = Field(default=None, description="User who accepted the invite")
+    accepted_at: Optional[datetime] = Field(default=None, description="When the invite was accepted")
     class Config:
         orm_mode = True
