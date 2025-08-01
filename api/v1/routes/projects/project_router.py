@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from api.v1.routes.organizations.org_rbac import org_rbac
 from api.v1.routes.projects.proj_rbac import project_rbac
 from models.enums import RoleEnum
-from models.schemas.project import ProjectCreate, ProjectUpdate, ProjectInDB
+from models.schemas.project import ProjectCard, ProjectCreate, ProjectUpdate, ProjectInDB
 from services.project_service import create_project, get_project, update_project, delete_project, get_projects_for_user
 from services.auth_handler import verify_token
 from services.rbac import get_project_role
@@ -44,7 +44,7 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
     })
     return result.data[0]
 
-@router.get("/", response_model=List[ProjectInDB])
+@router.get("/", response_model=List[ProjectCard])
 async def list_user_projects(org_id: str, user=Depends(verify_token), org_role=Depends(org_rbac)):
     """
     List all projects where the current user is a member.

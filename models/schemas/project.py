@@ -1,8 +1,10 @@
+from decimal import Decimal
 from pydantic import BaseModel, Field
 from typing import Optional
 from uuid import UUID
 from datetime import datetime, date
 from models.enums import ProjectStatusEnum, PriorityEnum
+from models.schemas.project_stats import ProjectStatsBase
 
 class ProjectBase(BaseModel):
     org_id: UUID = Field(..., description="Organization ID (UUID)", example="a1b2c3d4-5678-1234-9abc-def012345678")
@@ -31,3 +33,9 @@ class ProjectInDB(ProjectBase):
     deleted_at: Optional[datetime]
     class Config:
         orm_mode = True
+
+class ProjectCard(ProjectBase):
+    # project_stats: ProjectStatsBase
+    tasks_total: int = Field(..., description="Total number of tasks in the project", example=25)
+    tasks_completed: int = Field(..., description="Number of completed tasks", example=15)
+    progress_percent: Decimal = Field(..., description="Project completion percentage", example=60.0)
