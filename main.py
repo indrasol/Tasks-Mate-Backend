@@ -46,7 +46,7 @@ import os
 logger = setup_logging()
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(tm_app: FastAPI):
 
     log_info("Starting up TasksMate ")
     # log_info(f"Anthropic version: {anthropic.__version__}")
