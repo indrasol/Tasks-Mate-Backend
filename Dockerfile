@@ -9,11 +9,11 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first to leverage Docker cache
-COPY requirements.txt app/
-RUN pip install --no-cache-dir -r app/requirements.txt
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the actual application code
-COPY . app/
+COPY . .
 
 # Create non-root user
 RUN useradd --create-home --shell /bin/bash appuser \
@@ -25,11 +25,11 @@ ENV PYTHONPATH=/src
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/api/v1/docs || exit 1
+    CMD curl -f http://localhost:8000/docs || exit 1
 
 # gunicorn will listen on 8000 inside the container
 EXPOSE 8000
 
 # Simplified startup command with better error handling
 # CMD ["gunicorn", "--workers", "2", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "--log-level", "info", "main:app"]
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--access-log", "--log-level", "info"]
+CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "--workers", "2", "--bind", "0.0.0.0:8000", "main:app"]
