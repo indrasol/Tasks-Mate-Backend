@@ -80,7 +80,7 @@ async def lifespan(app: FastAPI):
         log_info("Shutting down")
 
 
-app = FastAPI(
+tm_app = FastAPI(
     title="TasksMate - Designed to manage projects, tasks and bugs efficiently",
     description="Designed to manage projects, tasks and bugs efficiently.",
     version="1.0.0",
