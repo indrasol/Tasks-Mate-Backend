@@ -34,10 +34,10 @@ print(f"title: {title}, description: {description}, version: {version}")
 # REPORTS_DIR = os.getenv("REPORTS_FOLDER", os.path.join(BASE_DIR, "reports"))
 
 
-SUPABASE_PROJECT_URL = os.getenv("SUPABASEURLST")
-SUPABASE_API_KEY = os.getenv("SUPABASEAPIKEYST")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASESERVICEKEYST")
-SUPABASE_SECRET_KEY = os.getenv("SUPABASESECRETKEYST")
+SUPABASE_PROJECT_URL = os.getenv("SUPABASE_URL_TM")
+SUPABASE_API_KEY = os.getenv("SUPABASE_API_KEY_TM")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY_TM")
+SUPABASE_SECRET_KEY = os.getenv("SUPABASE_SECRET_KEY_TM")
 
 HEALTH_API_KEY = os.getenv("HEALTH_API_KEY")
 
