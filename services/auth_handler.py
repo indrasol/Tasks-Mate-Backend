@@ -3,12 +3,8 @@ from fastapi.security import OAuth2PasswordBearer
 from fastapi import HTTPException, Header
 from config.settings import SUPABASE_SECRET_KEY, SUPABASE_API_KEY
 from fastapi import FastAPI
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
 from utils.logger import log_info
-from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
-from core.db.supabase_db import get_supabase_client, run_supabase_async, safe_supabase_operation
-import traceback
+from core.db.supabase_db import get_supabase_client, safe_supabase_operation
 import jwt
 from fastapi import Depends
 from fastapi.security import APIKeyHeader

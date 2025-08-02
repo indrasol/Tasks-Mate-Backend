@@ -21,19 +21,6 @@ print(f"title: {title}, description: {description}, version: {version}")
 # origins = os.getenv("origins").split(",")  # Split comma-separated string into list
 
 
-# # Get the base directory of the entire project (one level up from /config)
-# BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-# # Uploads directory
-# UPLOADS_DIR = os.getenv("UPLOAD_FOLDER", os.path.join(BASE_DIR, "uploads"))
-
-# # Output directory
-# OUTPUT_DIR = os.getenv("OUTPUT_FOLDER", os.path.join(BASE_DIR, "output"))
-
-# # Reports directory
-# REPORTS_DIR = os.getenv("REPORTS_FOLDER", os.path.join(BASE_DIR, "reports"))
-
-
 SUPABASE_PROJECT_URL = os.getenv("SUPABASE_URL_TM")
 SUPABASE_API_KEY = os.getenv("SUPABASE_API_KEY_TM")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY_TM")

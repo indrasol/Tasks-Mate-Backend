@@ -101,8 +101,8 @@ origins = [
     "http://127.0.0.1:3000",
     "http://localhost:5173",  # Vite default port
     "http://127.0.0.1:5173",
-    "https://tasksmakev1.netlify.app",
-    "https://development--tasksmatev1.netlify.app"
+    "https://mytasksmate.netlify.app",
+    "https://development--mytasksmate.netlify.app"
 ]
 
 # Add CORS middleware
@@ -153,7 +153,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
 
 # ----- Register routers -----
 # v1 grouped under /v1/routes
-app.include_router(api_router, prefix="/v1/routes")
+app.include_router(api_router, prefix="/v1")
 
 # Mount v1 router
 # from v1.api.routes.routes import router as v1_router
