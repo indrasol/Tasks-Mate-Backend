@@ -54,7 +54,7 @@ jobs:
             --push \
             --tag $LOGIN_SERVER/${{ env.IMAGE_NAME }}:latest \
             --tag $LOGIN_SERVER/${{ env.IMAGE_NAME }}:${{ github.sha }} \
-            --file sdr_backend/Dockerfile \
+            --file Dockerfile \
             .
 
 
