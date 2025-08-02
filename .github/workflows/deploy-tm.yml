@@ -50,6 +50,7 @@ jobs:
       - name: Build & push amd64 image
         run: |
           docker buildx build \
+            --pull --no-cache \
             --platform linux/amd64 \
             --push \
             --tag $LOGIN_SERVER/${{ env.IMAGE_NAME }}:latest \
