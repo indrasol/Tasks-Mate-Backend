@@ -106,7 +106,7 @@ origins = [
 ]
 
 # Add CORS middleware
-app.add_middleware(
+tm_app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Change to your frontend domain in production
     allow_credentials=True,
@@ -124,7 +124,7 @@ app.add_middleware(
 # Instrumentator().instrument(app)
 
 # Custom exception handler for HTTP exceptions
-@app.exception_handler(StarletteHTTPException)
+@tm_app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     log_info(f"HTTP exception: {exc.detail}, status_code: {exc.status_code}")
     return JSONResponse(
@@ -133,7 +133,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     )
 
 # Custom exception handler for validation errors
-@app.exception_handler(RequestValidationError)
+@tm_app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     log_info(f"Validation error: {str(exc)}")
     return JSONResponse(
@@ -142,7 +142,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 # Add custom exception handler for all other exceptions
-@app.exception_handler(Exception)
+@tm_app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
     log_info(f"Unhandled exception in {request.url.path}: {str(exc)}")
     log_info(traceback.format_exc())
@@ -153,7 +153,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
 
 # ----- Register routers -----
 # v1 grouped under /v1/routes
-app.include_router(api_router, prefix="/v1")
+tm_app.include_router(api_router, prefix="/v1")
 
 # Mount v1 router
 # from v1.api.routes.routes import router as v1_router
@@ -167,7 +167,7 @@ app.include_router(api_router, prefix="/v1")
 #     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 # Root endpoint
-@app.get("/")
+@tm_app.get("/")
 async def root():
     """
     Root endpoint providing basic API information.
@@ -182,4 +182,4 @@ async def root():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(tm_app, host="0.0.0.0", port=port)
