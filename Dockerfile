@@ -13,7 +13,11 @@ COPY app/requirements.txt app/
 RUN pip install --no-cache-dir -r app/requirements.txt
 
 # Copy the actual application code
+<<<<<<< HEAD
 COPY app/ app/
+=======
+COPY . .
+>>>>>>> 6ade0c0 (Update Dockerfile)
 
 # Create non-root user
 RUN useradd --create-home --shell /bin/bash appuser \
@@ -32,4 +36,9 @@ EXPOSE 8000
 
 # Simplified startup command with better error handling
 # CMD ["gunicorn", "--workers", "2", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "--log-level", "info", "main:app"]
+<<<<<<< HEAD
 CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--access-log", "--log-level", "info"]
+=======
+CMD ["python", "-m", "uvicorn", "main:tm_app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+
+>>>>>>> 6ade0c0 (Update Dockerfile)
