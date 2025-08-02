@@ -1,7 +1,7 @@
 from supabase import create_client, Client
 from config.settings import SUPABASE_PROJECT_URL, SUPABASE_API_KEY
 from fastapi import HTTPException
-from utils.logger import log_info
+from utils.logger import log_info, log_error, log_debugger
 from functools import lru_cache
 import asyncio
 import httpx
@@ -15,8 +15,8 @@ thread_pool = ThreadPoolExecutor()
 @lru_cache
 def get_supabase_client():
     # http_client = httpx.Client()
-    log_info(f"SUPABASE_PROJECT_URL: {SUPABASE_PROJECT_URL}")
-    log_info(f"SUPABASE_API_KEY: {SUPABASE_API_KEY}")
+    log_debugger(f"SUPABASE_PROJECT_URL: {SUPABASE_PROJECT_URL}")
+    log_debugger(f"SUPABASE_API_KEY: {SUPABASE_API_KEY}")
     supbase: Client = create_client(SUPABASE_PROJECT_URL, SUPABASE_API_KEY)
     return supbase
 
@@ -31,6 +31,6 @@ async def safe_supabase_operation(operation, error_message="Supabase operation f
     try:
         return await run_supabase_async(operation)
     except Exception as e:
-        log_info(f"{error_message}: {str(e)}")
+        # log_error(f"{error_message}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"{error_message}: {str(e)}")
 

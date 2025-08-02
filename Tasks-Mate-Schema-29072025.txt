@@ -1,0 +1,178 @@
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.designations (
+  designation_id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  name USER-DEFINED NOT NULL,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_by uuid,
+  updated_by uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT designations_pkey PRIMARY KEY (designation_id)
+);
+CREATE TABLE public.organization_invites (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  org_id uuid NOT NULL,
+  email text NOT NULL,
+  designation uuid,
+  role uuid,
+  invited_by uuid,
+  invite_status USER-DEFINED DEFAULT 'pending'::invite_status_enum,
+  sent_at timestamp with time zone DEFAULT now(),
+  expires_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  is_cancelled boolean DEFAULT false,
+  cancel_date timestamp with time zone,
+  CONSTRAINT organization_invites_pkey PRIMARY KEY (id),
+  CONSTRAINT organization_invites_designation_fkey FOREIGN KEY (designation) REFERENCES public.designations(designation_id),
+  CONSTRAINT organization_invites_role_fkey FOREIGN KEY (role) REFERENCES public.roles(role_id),
+  CONSTRAINT organization_invites_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(org_id)
+);
+CREATE TABLE public.organization_members (
+  user_id uuid NOT NULL,
+  org_id uuid NOT NULL,
+  designation uuid,
+  role uuid,
+  invited_by uuid,
+  is_active boolean DEFAULT true,
+  invited_at timestamp with time zone,
+  accepted_at timestamp with time zone,
+  updated_at timestamp with time zone DEFAULT now(),
+  deleted_at timestamp with time zone,
+  delete_reason text,
+  deleted_by uuid,
+  CONSTRAINT organization_members_pkey PRIMARY KEY (user_id, org_id),
+  CONSTRAINT organization_members_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(org_id),
+  CONSTRAINT organization_members_designation_fkey FOREIGN KEY (designation) REFERENCES public.designations(designation_id),
+  CONSTRAINT organization_members_role_fkey FOREIGN KEY (role) REFERENCES public.roles(role_id)
+);
+CREATE TABLE public.organizations (
+  org_id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  name text NOT NULL,
+  description text,
+  logo text,
+  email text,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_by uuid,
+  updated_by uuid,
+  is_deleted boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  deleted_at timestamp with time zone,
+  delete_reason text,
+  CONSTRAINT organizations_pkey PRIMARY KEY (org_id)
+);
+CREATE TABLE public.project_members (
+  project_id text NOT NULL,
+  user_id uuid NOT NULL,
+  designation uuid,
+  role uuid,
+  created_by uuid,
+  updated_by uuid,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  deleted_at timestamp with time zone,
+  delete_reason text,
+  CONSTRAINT project_members_pkey PRIMARY KEY (project_id, user_id),
+  CONSTRAINT project_members_designation_fkey FOREIGN KEY (designation) REFERENCES public.designations(designation_id),
+  CONSTRAINT project_members_role_fkey FOREIGN KEY (role) REFERENCES public.roles(role_id),
+  CONSTRAINT project_members_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(project_id)
+);
+CREATE TABLE public.project_resources (
+  resource_id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  project_id text NOT NULL,
+  name text NOT NULL,
+  url text,
+  resource_type text,
+  is_active boolean DEFAULT true,
+  created_by uuid,
+  updated_by uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  deleted_at timestamp with time zone,
+  delete_reason text,
+  CONSTRAINT project_resources_pkey PRIMARY KEY (resource_id),
+  CONSTRAINT project_resources_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(project_id)
+);
+CREATE TABLE public.projects (
+  project_id text NOT NULL,
+  org_id uuid NOT NULL,
+  name text NOT NULL,
+  description text,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  status USER-DEFINED DEFAULT 'not_started'::project_status_enum,
+  priority USER-DEFINED DEFAULT 'none'::priority_enum,
+  start_date date,
+  end_date date,
+  created_by uuid,
+  updated_by uuid,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  deleted_at timestamp with time zone,
+  delete_reason text,
+  CONSTRAINT projects_pkey PRIMARY KEY (project_id),
+  CONSTRAINT projects_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(org_id)
+);
+CREATE TABLE public.roles (
+  role_id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  name USER-DEFINED NOT NULL,
+  permissions jsonb DEFAULT '{}'::jsonb,
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT roles_pkey PRIMARY KEY (role_id)
+);
+CREATE TABLE public.task_attachments (
+  attachment_id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  task_id text NOT NULL,
+  title text,
+  name text,
+  url text,
+  uploaded_by uuid,
+  uploaded_at timestamp with time zone DEFAULT now(),
+  deleted_at timestamp with time zone,
+  deleted_by uuid,
+  is_inline boolean DEFAULT false,
+  CONSTRAINT task_attachments_pkey PRIMARY KEY (attachment_id)
+);
+CREATE TABLE public.task_comments (
+  comment_id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  task_id text NOT NULL,
+  title text,
+  user_id uuid,
+  content text NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT task_comments_pkey PRIMARY KEY (comment_id)
+);
+CREATE TABLE public.tasks (
+  task_id text NOT NULL,
+  project_id text NOT NULL,
+  sub_tasks ARRAY DEFAULT '{}'::text[],
+  dependencies ARRAY DEFAULT '{}'::text[],
+  title text NOT NULL,
+  description text,
+  status USER-DEFINED DEFAULT 'not_started'::task_status_enum,
+  assignee_id uuid,
+  due_date date,
+  priority USER-DEFINED DEFAULT 'none'::priority_enum,
+  tags ARRAY DEFAULT '{}'::text[],
+  metadata ARRAY DEFAULT '{}'::jsonb[],
+  created_by uuid,
+  updated_by uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT tasks_pkey PRIMARY KEY (task_id),
+  CONSTRAINT tasks_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(project_id)
+);
+CREATE TABLE public.tasks_history (
+  history_id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  task_id text NOT NULL,
+  title text,
+  metadata ARRAY DEFAULT '{}'::jsonb[],
+  hash_id text,
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT tasks_history_pkey PRIMARY KEY (history_id)
+);

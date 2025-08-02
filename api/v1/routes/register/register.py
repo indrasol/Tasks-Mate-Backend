@@ -75,157 +75,67 @@ async def registration_verify_token(authorization: str = Header(None)):
 
 
 
-# Helper function to get or create tenant
-async def get_or_create_tenant(tenant_name):
-    supabase = get_supabase_client()
-    def check_tenant():
-        return supabase.from_("tenants") \
-            .select("id") \
-            .eq("name", tenant_name) \
-            .execute()
+# # Helper function to get or create tenant
+# async def get_or_create_tenant(tenant_name):
+#     supabase = get_supabase_client()
+#     def check_tenant():
+#         return supabase.from_("tenants") \
+#             .select("id") \
+#             .eq("name", tenant_name) \
+#             .execute()
         
-    tenant_response = await safe_supabase_operation(
-        check_tenant,
-        "Failed to check if tenant exists"
-    )
+#     tenant_response = await safe_supabase_operation(
+#         check_tenant,
+#         "Failed to check if tenant exists"
+#     )
     
-    if tenant_response.data:
-        return tenant_response.data[0]["id"]
+#     if tenant_response.data:
+#         return tenant_response.data[0]["id"]
     
-    # Create new tenant
-    def create_tenant():
-        return supabase.from_("tenants") \
-            .insert({"name": tenant_name}) \
-            .execute()
+#     # Create new tenant
+#     def create_tenant():
+#         return supabase.from_("tenants") \
+#             .insert({"name": tenant_name}) \
+#             .execute()
         
-    new_tenant_response = await safe_supabase_operation(
-        create_tenant,
-        "Failed to create tenant"
-    )
+#     new_tenant_response = await safe_supabase_operation(
+#         create_tenant,
+#         "Failed to create tenant"
+#     )
     
-    tenant_id = new_tenant_response.data[0]["id"]
-    log_info(f"Created new tenant: {tenant_name} with ID: {tenant_id}")
+#     tenant_id = new_tenant_response.data[0]["id"]
+#     log_info(f"Created new tenant: {tenant_name} with ID: {tenant_id}")
     
-    return tenant_id
+#     return tenant_id
 
 @router.post("/register")
-async def register(
-    request_data: RegisterRequest,
-    current_user: dict = Depends(registration_verify_token)
-):
-    """
-    Register a new user after Supabase authentication and associate with tenant.
-
-    Args:
-        request_data: Contains user_id, tenant_name, email, username.
-        current_user: Verified user from the token.
-
-    Returns:
-        Success message.
-    """
-    try :
-        
-        log_info(f"Entered register try block")
-        log_info(f"request_data : {request_data}")
+async def register(request_data: RegisterRequest, current_user: dict = Depends(registration_verify_token)):
+    try:
         supabase = get_supabase_client()
-       # Check if user already exists - checking both user and email in one query
-        def check_user_exists():
-            return supabase.from_("users") \
-                .select("id, username, email") \
-                .eq("id", request_data.user_id) \
-                .execute()
-            
-        user_response = await safe_supabase_operation(
-            check_user_exists,
-            "Failed to check if user exists"
-        )
-        
-        if user_response.data:
-            # Determine which condition was matched
-            for user in user_response.data:
-                if user["id"] == request_data.user_id:
-                    raise HTTPException(status_code=400, detail="User already exists")
-                if user["username"] == request_data.username:
-                    raise HTTPException(status_code=400, detail="Username already taken. Please choose a different one")
-                if user["email"] == request_data.email:
-                    raise HTTPException(status_code=400, detail="Email already registered! Register with a different email")
-        
-        # Check or create tenant (using organization_name)
-       # Check if tenant exists or create a new one
-        tenant_id = await get_or_create_tenant(request_data.tenant_name)
-        log_info(f"Using tenant with ID: {tenant_id}")
 
-        
-        # Create user with provided details
+        def check_user():
+            return supabase.from_("users").select("*").eq("id", request_data.user_id).execute()
+
+        existing = await safe_supabase_operation(check_user, "Check user failed")
+        if existing.data:
+            raise HTTPException(status_code=400, detail="User already exists")
+
         new_user_data = {
             "id": request_data.user_id,
             "username": request_data.username,
             "email": request_data.email
         }
-        
-        def create_user():
-            return supabase.from_("users") \
-                .insert(new_user_data) \
-                .execute()
-            
-        new_user_response = await safe_supabase_operation(
-            create_user,
-            "Failed to create user"
-        )
 
-        log_info(f"new_user_response : {new_user_response}")
-        
-        user_id = new_user_response.data[0]["id"]
-        log_info(f"Created new user with ID: {user_id}")
+        def insert_user():
+            return supabase.from_("users").insert(new_user_data).execute()
 
-        # Check if association already exists before inserting
-        def check_association():
-            return supabase.from_("user_tenant_association") \
-                .select("*") \
-                .eq("user_id", user_id) \
-                .eq("tenant_id", tenant_id) \
-                .execute()
-                
-        association_response = await safe_supabase_operation(
-            check_association,
-            "Failed to check user-tenant association"
-        )
-        
-        if not association_response.data:
-            # Associate user with tenant - explicitly excluding the id column
-            def associate_user_tenant():
-                return supabase.from_("user_tenant_association") \
-                    .insert({
-                        "user_id": user_id,
-                        "tenant_id": tenant_id
-                        #Returnign Minimal for better performance
-                    }, returning="minimal") \
-                    .execute()
-                
-            await safe_supabase_operation(
-                associate_user_tenant,
-                "Failed to associate user with tenant"
-            )
-            log_info(f"Associated user {user_id} with tenant {tenant_id}")
+        await safe_supabase_operation(insert_user, "Insert user failed")
 
-        return {"message": "User and tenant registered successfully"}
+        return {"message": "User registered successfully"}
+
     except Exception as e:
-        # Cleanup on failure - more robust error handling
-        try:
-            if 'user_id' in locals():
-                log_info(f"Cleaning up failed registration for user {user_id}")
-                # Delete from users table
-                supabase.from_("users").delete().eq("id", user_id).execute()
-                # Delete from auth.users
-                supabase.auth.admin.delete_user(user_id)
-        except Exception as cleanup_error:
-            log_info(f"Error during cleanup: {str(cleanup_error)}")
-            
-        # Re-raise the original exception with more details
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
-
+        log_info(f"Registration error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Registration failed")
 
 
 
@@ -294,49 +204,25 @@ async def _cleanup_unconfirmed_user(user_id: str):
 
 
 @router.post("/register/pending")
-async def register_pending(
-    request_data: RegisterRequest,
-    api_key: str = Depends(verify_api_key),
-):
-    """Create DB records for a user whose e-mail is still unconfirmed.
-
-    Called right after `supabase.auth.signUp()` when no JWT session exists.
-    Protected via the X-API-Key header so only our front-end can call it.
-    """
+async def register_pending(request_data: RegisterRequest, api_key: str = Depends(verify_api_key)):
     try:
-        log_info("Entered register_pending endpoint")
+        supabase = get_supabase_client()
 
-        # 1) Ensure tenant exists
-        tenant_id = await get_or_create_tenant(request_data.tenant_name)
-
-        # 2) Insert the user row if it doesn't exist yet
         new_user_data = {
             "id": request_data.user_id,
             "username": request_data.username,
-            "email": request_data.email,
+            "email": request_data.email
         }
 
-        def insert_user():
-            supabase = get_supabase_client()
+        def upsert_user():
             return supabase.from_("users").upsert(new_user_data).execute()
 
-        await safe_supabase_operation(insert_user, "Failed to insert pending user")
+        await safe_supabase_operation(upsert_user, "Insert pending user failed")
 
-        # 3) Upsert association row
-        def upsert_assoc():
-            supabase = get_supabase_client()
-            return (
-                supabase.from_("user_tenant_association")
-                .upsert({"user_id": request_data.user_id, "tenant_id": tenant_id})
-                .execute()
-            )
-
-        await safe_supabase_operation(upsert_assoc, "Failed to upsert user-tenant association")
-
-        # 4) Schedule cleanup task (detached, won't block server shutdown)
         asyncio.create_task(_cleanup_unconfirmed_user(request_data.user_id))
 
-        return {"message": "Pending registration stored. Please confirm e-mail within 1 hour."}
+        return {"message": "Pending registration saved"}
+
     except Exception as e:
-        log_info(f"Error in register_pending: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Pending registration failed: {str(e)}")
+        log_info(f"Pending registration error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Pending registration failed")

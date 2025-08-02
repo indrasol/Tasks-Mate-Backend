@@ -48,7 +48,7 @@ logger = setup_logging()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
 
-    log_info("Starting up SecureTrack ")
+    log_info("Starting up TasksMate ")
     # log_info(f"Anthropic version: {anthropic.__version__}")
     log_info(f"httpx version: {httpx.__version__}")
     # # Startup: Connect to database and Redis
@@ -84,7 +84,8 @@ app = FastAPI(
     title="TasksMate - Designed to manage projects, tasks and bugs efficiently",
     description="Designed to manage projects, tasks and bugs efficiently.",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    debug=True
 )
 
 # # ---------------- Rate Limiting ----------------
@@ -107,10 +108,10 @@ origins = [
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # Allows specific origins
+    allow_origins=["*"],  # Change to your frontend domain in production
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all HTTP methods (GET, POST, etc.)
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # # Set up health monitoring middleware (needs to be after CORS middleware)
