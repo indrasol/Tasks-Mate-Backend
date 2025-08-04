@@ -21,34 +21,50 @@ async def verify_token(authorization: str = Header(None), is_registration: bool 
         if not authorization or " " not in authorization:
             raise HTTPException(status_code=401, detail="Malformed authorization header")
 
-        scheme, token = authorization.split(" ", 1)
+        # Extract and validate the scheme and token
+        try:
+            scheme, token = authorization.strip().split(" ", 1)
+        except ValueError:
+            raise HTTPException(status_code=401, detail="Invalid authorization format")
+
         if scheme.lower() != "bearer":
             raise HTTPException(status_code=401, detail="Invalid authentication scheme")
 
-        # Decode token for timestamp info (optional, for logs)
+        if not isinstance(token, str) or not token:
+            raise HTTPException(status_code=401, detail="Token must be a non-empty string")
+        
+        if not isinstance(SUPABASE_SECRET_KEY, str):
+            raise HTTPException(status_code=500, detail=f"Server misconfiguration: Invalid secret key - {SUPABASE_SECRET_KEY}")
+
+
+        # Decode token without verifying to log iat/exp (optional)
         try:
             unverified_payload = jwt.decode(token, options={"verify_signature": False})
-            # log_info(f"Token iat: {unverified_payload.get('iat')}")
-            # log_info(f"Token exp: {unverified_payload.get('exp')}")
-        except Exception:
-            pass
+            # log_info(f"Unverified token iat: {unverified_payload.get('iat')}, exp: {unverified_payload.get('exp')}")
+        except Exception as decode_err:
+            log_info(f"Could not decode unverified token payload: {decode_err}")
 
-        # Verify token
-        payload = jwt.decode(
-            token,
-            SUPABASE_SECRET_KEY,
-            algorithms=["HS256"],
-            audience="authenticated",
-            options={"leeway": 10, "verify_iat": False},
-        )
+        # Fully verify token
+        try:
+            payload = jwt.decode(
+                token,
+                SUPABASE_SECRET_KEY,
+                algorithms=["HS256"],
+                audience="authenticated",
+                options={"leeway": 10, "verify_iat": False}
+            )
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(status_code=401, detail="Token has expired")
+        except jwt.InvalidTokenError as e:
+            raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
 
         user_id = payload.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid token payload")
+        if not user_id or not isinstance(user_id, str):
+            raise HTTPException(status_code=401, detail="Invalid token payload: missing user ID")
 
-        log_info(f"Token valid for user: {user_id}")
+        log_info(f"Token valid for user ID: {user_id}")
 
-        # Get user from your users table
+        # Look up user in Supabase
         supabase = get_supabase_client()
 
         def user_op():
@@ -56,7 +72,8 @@ async def verify_token(authorization: str = Header(None), is_registration: bool 
 
         user_response = await safe_supabase_operation(user_op, "User lookup failed")
 
-        if is_registration and not user_response.data:
+        if is_registration:
+            # During registration, allow the user to not exist yet
             return {"id": user_id}
 
         if not user_response.data:
@@ -65,8 +82,8 @@ async def verify_token(authorization: str = Header(None), is_registration: bool 
         user_data = user_response.data[0]
         return {
             "id": user_id,
-            "username": user_data["username"],
-            "email": user_data["email"]
+            "username": user_data.get("username"),
+            "email": user_data.get("email")
         }
 
     except HTTPException as he:
@@ -74,6 +91,7 @@ async def verify_token(authorization: str = Header(None), is_registration: bool 
     except Exception as e:
         log_info(f"Token verification error: {str(e)}")
         raise HTTPException(status_code=500, detail="Authentication failed")
+
 
 
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)

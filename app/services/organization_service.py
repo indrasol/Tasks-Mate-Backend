@@ -1,6 +1,8 @@
+import datetime
 from typing import Optional, Union, List
 from app.core.db.supabase_db import get_supabase_client, safe_supabase_operation
 from app.models.enums import RoleEnum
+from app.services.utils import inject_audit_fields
 
 async def _generate_sequential_org_id() -> str:
     """Generate the next sequential organization ID in the format 'O0001'.
@@ -164,11 +166,38 @@ async def delete_organization(org_id: str, metadata: Optional[dict] = None):
     if not await _organization_exists(org_id):
         raise ValueError(f"Cannot delete: Organization '{org_id}' does not exist.")
 
+    if not metadata or "deleted_by" not in metadata:
+        raise ValueError("Missing required metadata: 'deleted_by'")
+
     supabase = get_supabase_client()
 
     def op():
-        return supabase.from_("organizations").delete().eq("org_id", org_id).execute()
+        try:
+            # Step 1: Fetch existing org record
+            response = supabase.table("organizations").select("*").eq("org_id", org_id).single().execute()
+            org_data = response.data  # this will raise if query fails
 
+            if not org_data:
+                raise Exception(f"Organization '{org_id}' not found.")
+
+            # Step 2: Add delete metadata
+            if metadata and metadata.get("delete_reason"):
+                org_data["delete_reason"] = metadata["delete_reason"]
+            org_data["deleted_by"] = metadata.get("deleted_by", "unknown")
+            org_data["deleted_at"] = datetime.datetime.utcnow().isoformat()
+
+            # Step 3: Insert into organizations_history
+            supabase.table("organizations_history").insert(org_data).execute()
+
+            # Step 4: Delete from organizations
+            supabase.table("organizations").delete().eq("org_id", org_id).execute()
+
+            return {"status": "deleted", "org_id": org_id}
+
+        except Exception as e:
+            raise Exception(f"Supabase operation failed: {str(e)}")
+
+    # Run safely
     return await safe_supabase_operation(op, "Failed to delete organization")
 
 
@@ -201,16 +230,16 @@ async def get_organizations_for_user(user_id: str, username: str, email: Optiona
         }
 
     # Handle invites if email provided
-    invite_org_ids = set()
-    if email:
-        def invite_op():
-            return supabase.from_("organization_invites").select("org_id").eq("email", email).execute()
+    # invite_org_ids = set()
+    # if email:
+    #     def invite_op():
+    #         return supabase.from_("organization_invites").select("org_id").eq("email", email).execute()
 
-        invite_result = await safe_supabase_operation(invite_op, "Failed to fetch organization invites")
-        invite_org_ids = {row["org_id"] for row in invite_result.data or []}
+    #     invite_result = await safe_supabase_operation(invite_op, "Failed to fetch organization invites")
+    #     invite_org_ids = {row["org_id"] for row in invite_result.data or []}
 
-    only_invite_org_ids = invite_org_ids - member_org_ids
-    all_org_ids = member_org_ids | only_invite_org_ids
+    # only_invite_org_ids = invite_org_ids - member_org_ids
+    all_org_ids = member_org_ids # | only_invite_org_ids
 
     if not all_org_ids:
         return []
@@ -242,6 +271,11 @@ async def get_organizations_for_user(user_id: str, username: str, email: Optiona
         if org_id in member_info:
             role = member_info[org_id]["role"]
             designation = member_info[org_id]["designation"]
+
+        # if org_id in only_invite_org_ids:
+        #     is_invite = True
+        # else:
+        #     is_invite = False
         
         # Create OrgCard dict
         org_card = {
@@ -253,7 +287,8 @@ async def get_organizations_for_user(user_id: str, username: str, email: Optiona
             "created_at": org.get("created_at", ""),
             "designation": designation,
             "project_count": org.get("project_count", 0),
-            "member_count": org.get("member_count", 0)
+            "member_count": org.get("member_count", 0),
+            # "is_invite":is_invite
         }
         
         org_cards.append(org_card)

@@ -1,10 +1,10 @@
 
 from datetime import datetime
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Optional
+from fastapi import APIRouter, Body, Depends, HTTPException
 from app.api.v1.routes.organizations.org_rbac import org_rbac
 from app.models.enums import DesignationEnum, RoleEnum
-from app.models.schemas.organization import OrganizationCreate, OrganizationUpdate, OrganizationInDB, OrgCard
+from app.models.schemas.organization import OrganizationCreate, OrganizationDelete, OrganizationUpdate, OrganizationInDB, OrgCard
 from app.services.organization_service import create_organization, get_organization, update_organization, delete_organization, get_organizations_for_user
 from app.services.auth_handler import verify_token
 from app.services.rbac import get_org_role
@@ -88,12 +88,13 @@ async def read_org(org_id: str, user=Depends(verify_token), role=Depends(org_rba
 async def update_org(org_id: str, org: OrganizationUpdate, user=Depends(verify_token), role=Depends(org_rbac)):
     if role not in [RoleEnum.OWNER.value, RoleEnum.ADMIN.value]:
         raise HTTPException(status_code=403, detail="Not authorized")
-    result = await update_organization(org_id, {**org.dict(exclude_unset=True), "updated_by": user["id"]})
+    result = await update_organization(org_id, {**org.dict(exclude_unset=True), "updated_by": user["username"]})
     return result.data[0]
 
 @router.delete("/{org_id}")
-async def delete_org(org_id: str, user=Depends(verify_token), role=Depends(org_rbac)):
+async def delete_org(org_id: str, org:OrganizationDelete , user=Depends(verify_token), role=Depends(org_rbac)):
     if role != RoleEnum.OWNER.value:
         raise HTTPException(status_code=403, detail="Only owner can delete organization")
-    await delete_organization(org_id, {"deleted_by": user["id"]})
+  
+    await delete_organization(org_id, {"delete_reason": org.delete_reason, "deleted_by": user["username"]})
     return {"ok": True}
