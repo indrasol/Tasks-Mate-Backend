@@ -4,7 +4,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from app.api.v1.routes.organizations.org_rbac import org_rbac
 from app.models.enums import DesignationEnum, RoleEnum
-from app.models.schemas.organization import OrganizationCreate, OrganizationUpdate, OrganizationInDB
+from app.models.schemas.organization import OrganizationCreate, OrganizationUpdate, OrganizationInDB, OrgCard
 from app.services.organization_service import create_organization, get_organization, update_organization, delete_organization, get_organizations_for_user
 from app.services.auth_handler import verify_token
 from app.services.rbac import get_org_role
@@ -19,40 +19,63 @@ router = APIRouter()
 #         raise HTTPException(status_code=403, detail="Not a member of this organization")
 #     return role
 
-@router.post("/", response_model=OrganizationInDB)
+@router.post("/", response_model=OrgCard)
 async def create_org(org: OrganizationCreate, user=Depends(verify_token)):
     # Only global admin/editor can create orgs
     # if user.get("role") not in ["admin", "editor"]:
     #     raise HTTPException(status_code=403, detail="Not authorized")
-    result_org = await create_organization({**org.dict(), "created_by": user["id"]})
-    org_id = result_org.data[0]["org_id"]
-
-    result_role = await get_role_by_name(RoleEnum.OWNER.value)
-    if result_role.data and len(result_role.data) > 0:
-        role_id = result_role.data["role_id"]
-    else:
-        result_role = await create_role({"name":RoleEnum.OWNER.value})
-        if result_role.data:
-            role_id = result_role.data[0]["role_id"]
+    # Prepare data, exclude None values so we don't send columns that may not exist
+    org_data = org.model_dump(exclude_none=True)
+    # Ensure enum types are serialized properly (e.g., RoleEnum -> 'owner')
+    # if isinstance(org_data.get("role"), RoleEnum):
+    #     role = org_data["role"].value
     
-    await create_organization_member({
-        "user_id": user["id"],
-        "org_id": org_id,
-        # "designation": DesignationEnum.MANAGER,
-        "role": role_id,
-        # "is_active": True,
-        "invited_by": user["id"],
-        # "invited_at": datetime.now(),
-        # "accepted_at": datetime.now()
-    })
-    return result_org.data[0]
+    name = org_data.get("name")
+    description = org_data.get("description")
+    designation = org_data.get("designation")
+    username = user["username"]
 
-@router.get("/", response_model=List[OrganizationInDB])
+    try:
+        result_org = await create_organization({"name":name, "description":description, "designation":designation, "created_by": username})
+        org_id = result_org.data[0]["org_id"]
+        role = org_data.get("role", RoleEnum.OWNER.value)
+        
+        await create_organization_member({
+            "user_id": user["id"],
+            "org_id": org_id,
+            "designation": designation,
+            "role": role,
+            "invited_by": user["id"],
+        })
+        
+        # Return simplified OrgCard response
+        return OrgCard(
+            org_id=org_id,
+            name=name,
+            description=description,
+            role=role,
+            designation=designation,
+            project_count=0,  # New org starts with 0 projects
+            member_count=1,   # New org starts with 1 member (creator)
+            created_by=username,
+            created_at=datetime.now()
+        )
+    except ValueError as e:
+        if "already exists" in str(e):
+            raise HTTPException(
+                status_code=409,  # Conflict - appropriate for duplicate resources
+                detail=f"Organization with name '{name}' already exists. Please choose a different name."
+            )
+        # Re-raise other ValueError exceptions
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/", response_model=List[OrgCard])
 async def list_user_organizations(user=Depends(verify_token)):
     """
     List all organizations the user is a member of or invited to.
+    Returns simplified OrgCard objects with essential information.
     """
-    return await get_organizations_for_user(user["id"], user.get("email"))
+    return await get_organizations_for_user(user["id"], user["username"], user.get("email"))
 
 @router.get("/{org_id}", response_model=OrganizationInDB)
 async def read_org(org_id: str, user=Depends(verify_token), role=Depends(org_rbac)):

@@ -133,6 +133,9 @@ async def register(request_data: RegisterRequest, current_user: dict = Depends(r
 
         return {"message": "User registered successfully"}
 
+    except HTTPException as http_exc:
+        # Preserve original HTTPException (e.g., 400 already exists)
+        raise http_exc
     except Exception as e:
         log_info(f"Registration error: {str(e)}")
         raise HTTPException(status_code=500, detail="Registration failed")
