@@ -57,7 +57,7 @@ async def create_invite(invite: OrganizationInviteCreate, user=Depends(verify_to
     if role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    data = inject_audit_fields(invite.dict(), user["id"], action="invite_org")
+    data = inject_audit_fields(invite.dict(), user["username"], action="invite_org")
 
     result = await create_organization_invite(data)
     return result.data[0]
@@ -87,21 +87,21 @@ async def list_user_invites(
 
 
 @router.get("/{invite_id}", response_model=OrganizationInviteInDB)
-async def read_invite(invite_id: str, org_id: str, user=Depends(verify_token), role=Depends(org_rbac)):
+async def read_invite(invite_id: str, user=Depends(verify_token), role=Depends(org_rbac)):
     result = await get_organization_invite(invite_id)
     if not result.data:
         raise HTTPException(status_code=404, detail="Not found")
     return result.data
 
 @router.put("/{invite_id}", response_model=OrganizationInviteInDB)
-async def update_invite(invite_id: str, invite: OrganizationInviteUpdate, org_id: str, user=Depends(verify_token), role=Depends(org_rbac)):
+async def update_invite(invite_id: str, invite: OrganizationInviteUpdate, user=Depends(verify_token), role=Depends(org_rbac)):
     if role not in ["admin", "editor"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     result = await update_organization_invite(invite_id, invite.dict(exclude_unset=True))
     return result.data[0]
 
 @router.put("/{invite_id}/accept", response_model=OrganizationInviteInDB)
-async def accept_invite(invite_id: str, org_id: str, user=Depends(verify_token), role=Depends(org_rbac)):
+async def accept_invite(invite_id: str, user=Depends(verify_token), role=Depends(org_rbac)):
     # Only the invited user can accept
     # (You may want to check invitee's email/user_id matches user["id"])
     # Check if invite exists
@@ -138,7 +138,7 @@ async def accept_invite(invite_id: str, org_id: str, user=Depends(verify_token),
     return result_member.data[0]
 
 @router.delete("/{invite_id}")
-async def delete_invite(invite_id: str, org_id: str, user=Depends(verify_token), role=Depends(org_rbac)):
+async def delete_invite(invite_id: str, user=Depends(verify_token), role=Depends(org_rbac)):
     if role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
     await delete_organization_invite(invite_id)

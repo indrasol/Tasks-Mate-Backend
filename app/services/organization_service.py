@@ -230,16 +230,16 @@ async def get_organizations_for_user(user_id: str, username: str, email: Optiona
         }
 
     # Handle invites if email provided
-    # invite_org_ids = set()
-    # if email:
-    #     def invite_op():
-    #         return supabase.from_("organization_invites").select("org_id").eq("email", email).execute()
+    invite_org_ids = set()
+    if email:
+        def invite_op():
+            return supabase.from_("organization_invites").select("org_id, id").eq("email", email).execute()
 
-    #     invite_result = await safe_supabase_operation(invite_op, "Failed to fetch organization invites")
-    #     invite_org_ids = {row["org_id"] for row in invite_result.data or []}
+        invite_result = await safe_supabase_operation(invite_op, "Failed to fetch organization invites")
+        invite_org_ids = {row["org_id"] for row in invite_result.data or []}
 
-    # only_invite_org_ids = invite_org_ids - member_org_ids
-    all_org_ids = member_org_ids # | only_invite_org_ids
+    only_invite_org_ids = invite_org_ids - member_org_ids
+    all_org_ids = member_org_ids | only_invite_org_ids
 
     if not all_org_ids:
         return []
@@ -272,10 +272,13 @@ async def get_organizations_for_user(user_id: str, username: str, email: Optiona
             role = member_info[org_id]["role"]
             designation = member_info[org_id]["designation"]
 
-        # if org_id in only_invite_org_ids:
-        #     is_invite = True
-        # else:
-        #     is_invite = False
+        invitation_id = None
+        is_invite = False
+
+        if org_id in only_invite_org_ids:
+            is_invite = True
+            # get id based on org_id
+            invitation_id = next((m.id for m in invite_result.data if m.org_id == org_id), None)        
         
         # Create OrgCard dict
         org_card = {
@@ -288,7 +291,8 @@ async def get_organizations_for_user(user_id: str, username: str, email: Optiona
             "designation": designation,
             "project_count": org.get("project_count", 0),
             "member_count": org.get("member_count", 0),
-            # "is_invite":is_invite
+            "is_invite":is_invite,
+            "invitation_id": invitation_id
         }
         
         org_cards.append(org_card)

@@ -45,7 +45,7 @@ async def create_org(org: OrganizationCreate, user=Depends(verify_token)):
             "org_id": org_id,
             "designation": designation,
             "role": role,
-            "invited_by": user["id"],
+            "invited_by": user["username"],
         })
         
         # Return simplified OrgCard response

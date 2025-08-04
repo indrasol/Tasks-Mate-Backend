@@ -18,12 +18,12 @@ router = APIRouter()
 async def create_member(member: OrganizationMemberCreate, user=Depends(verify_token), role=Depends(org_rbac)):
     if role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Not authorized")
-    result = await create_organization_member({**member.dict(), "created_by": user["id"]})
+    result = await create_organization_member({**member.dict(), "created_by": user["username"]})
     return result.data[0]
 
-@router.get("/", response_model=List[OrganizationMemberInDB])
+@router.get("/{org_id}", response_model=List[OrganizationMemberInDB])
 async def list_org_members(
-    org_id: str = Query(...),
+    org_id: str,
     search: Optional[str] = Query(None),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
@@ -52,12 +52,12 @@ async def update_member(user_id: str, org_id: str, member: OrganizationMemberUpd
         raise HTTPException(status_code=403, detail="Only owner can assign owner role")
     if member.role == "admin" and role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Only owner/admin can assign admin role")
-    result = await update_organization_member(user_id, org_id, {**member.dict(exclude_unset=True), "updated_by": user["id"]})
+    result = await update_organization_member(user_id, org_id, {**member.dict(exclude_unset=True), "updated_by": user["name"]})
     return result.data[0]
 
 @router.delete("/{user_id}/{org_id}")
 async def delete_member(user_id: str, org_id: str, user=Depends(verify_token), role=Depends(org_rbac)):
     if role != "owner":
         raise HTTPException(status_code=403, detail="Only owner can remove members")
-    await delete_organization_member(user_id, org_id, {"deleted_by": user["id"]})
+    await delete_organization_member(user_id, org_id, {"deleted_by": user["username"]})
     return {"ok": True}
