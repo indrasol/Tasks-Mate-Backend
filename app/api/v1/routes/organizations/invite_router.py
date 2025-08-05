@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime 
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, HTTPException
 from app.api.v1.routes.organizations.org_rbac import org_rbac
@@ -62,14 +62,14 @@ async def create_invite(invite: OrganizationInviteCreate, user=Depends(verify_to
     result = await create_organization_invite(data)
     return result.data[0]
 
-@router.get("/", response_model=List[OrganizationInviteInDB])
+@router.get("/org/{org_id}", response_model=List[OrganizationInviteInDB])
 async def list_org_invites(
-    org_id: str = Query(...),
+    org_id: str,
     search: Optional[str] = Query(None),
-    limit: int = Query(20, ge=1, le=100),
-    offset: int = Query(0, ge=0),
-    sort_by: str = Query("email"),
-    sort_order: str = Query("asc"),
+    limit: Optional[int] = Query(20, ge=1, le=100),
+    offset: Optional[int] = Query(0, ge=0),
+    sort_by: Optional[str] = Query("email"),
+    sort_order: Optional[str] = Query("asc"),
     email: Optional[str] = Query(None),
     user=Depends(verify_token)
 ):
@@ -86,7 +86,7 @@ async def list_user_invites(
     return await get_invites_for_user(user["email"])
 
 
-@router.get("/{invite_id}", response_model=OrganizationInviteInDB)
+@router.get("/org/{invite_id}", response_model=OrganizationInviteInDB)
 async def read_invite(invite_id: str, user=Depends(verify_token), role=Depends(org_rbac)):
     result = await get_organization_invite(invite_id)
     if not result.data:
@@ -101,41 +101,45 @@ async def update_invite(invite_id: str, invite: OrganizationInviteUpdate, user=D
     return result.data[0]
 
 @router.put("/{invite_id}/accept", response_model=OrganizationInviteInDB)
-async def accept_invite(invite_id: str, user=Depends(verify_token), role=Depends(org_rbac)):
+async def accept_invite(invite_id: str, user=Depends(verify_token)):
     # Only the invited user can accept
     # (You may want to check invitee's email/user_id matches user["id"])
     # Check if invite exists
     invite = await get_organization_invite(invite_id)
     if not invite.data:
         raise HTTPException(status_code=404, detail="Not found")
-    if invite.data[0]["email"] != user["email"]:
+    if invite.data["email"] != user["email"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     # Check if invite is already accepted
-    if invite.data[0]["status"] == "accepted":
-        raise HTTPException(status_code=400, detail="Invite already accepted")
+    # if invite.data["invite_status"] == "accepted":
+    #     raise HTTPException(status_code=400, detail="Invite already accepted")
     # Check if invite is already expired
-    if invite.data[0]["expires_at"] < datetime.now():
-        raise HTTPException(status_code=400, detail="Invite expired")
+    # expires_at = datetime.fromisoformat(invite.data["expires_at"])
+    # if expires_at < datetime.utcnow():
+    #     raise HTTPException(status_code=400, detail="Invite expired")
+    # if invite.data["expires_at"] < datetime.now():
+    #     
     # Update invite status to accepted
-    invite.data[0]["status"] = "accepted"
-    invite.data[0]["accepted_at"] = datetime.now()
+    invite.data["invite_status"] = "accepted"
+    invite.data["updated_at"] = datetime.utcnow().isoformat()
     # Update invite
-    result = await update_organization_invite(invite_id, invite.data[0])
+    result = await update_organization_invite(invite_id, invite.data)
     if not result.data:
         raise HTTPException(status_code=400, detail="Failed to update invite")
         
     # Create organization member
     result_member = await create_organization_member({
         "user_id": user["id"],
-        "org_id": invite.data[0]["org_id"],
-        "role": invite.data[0]["role"],
-        "designation": invite.data[0]["designation"],
-        "created_by": invite.data[0]["invited_by"]
+        "org_id": invite.data["org_id"],
+        "email": invite.data["email"],
+        "role": invite.data["role"],
+        "designation": invite.data["designation"],
+        "invited_by": invite.data["invited_by"]
     })
 
     result_invite = await delete_organization_invite(invite_id)
     
-    return result_member.data[0]
+    return result.data[0]
 
 @router.delete("/{invite_id}")
 async def delete_invite(invite_id: str, user=Depends(verify_token), role=Depends(org_rbac)):

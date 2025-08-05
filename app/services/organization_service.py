@@ -256,7 +256,7 @@ async def get_organizations_for_user(user_id: str, username: str, email: Optiona
         invite_org_ids = {row["org_id"] for row in invite_result.data or []}
 
     only_invite_org_ids = invite_org_ids - member_org_ids
-    all_org_ids = member_org_ids | only_invite_org_ids
+    all_org_ids = member_org_ids #| only_invite_org_ids
 
     if not all_org_ids:
         return []
@@ -295,7 +295,9 @@ async def get_organizations_for_user(user_id: str, username: str, email: Optiona
         if org_id in only_invite_org_ids:
             is_invite = True
             # get id based on org_id
-            invitation_id = next((m.id for m in invite_result.data if m.org_id == org_id), None)        
+            # invitation_id = next((m.id for m in invite_result.data if m.org_id == org_id), None)        
+            invitation_id = next((m["id"] for m in invite_result.data if m["org_id"] == org_id), None)
+
         
         # Create OrgCard dict
         org_card = {
