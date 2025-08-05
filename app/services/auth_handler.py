@@ -68,7 +68,7 @@ async def verify_token(authorization: str = Header(None), is_registration: bool 
         supabase = get_supabase_client()
 
         def user_op():
-            return supabase.from_("users").select("*").eq("id", user_id).execute()
+            return supabase.from_("users").select("username,email").eq("id", user_id).execute()
 
         user_response = await safe_supabase_operation(user_op, "User lookup failed")
 
