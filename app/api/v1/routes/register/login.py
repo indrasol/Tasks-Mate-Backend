@@ -36,7 +36,7 @@ async def login(identifier: dict, current_user: dict = Depends(verify_token)):
         field = "email" if "@" in identifier.get("identifier") else "username"
 
         def get_user():
-            return supabase.from_("users").select("*").eq(field, identifier["identifier"]).execute()
+            return supabase.from_("users").select("id,username,email").eq(field, identifier["identifier"]).execute()
 
         user_response = await safe_supabase_operation(get_user, "User lookup failed")
 
