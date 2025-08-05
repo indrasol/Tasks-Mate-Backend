@@ -145,14 +145,31 @@ async def get_organization(org_id: str):
 
 
 async def update_organization(org_id: str, data: dict):
+    """Update an organization record with additional safeguards.
+
+    • Validates input and existence.
+    • Prevents duplicate org names when changing the name.
+    • Automatically injects an updated_at timestamp if not supplied.
+    """
     _validate_org_id(org_id)
     _validate_data(data)
 
     # Check if org exists before attempting update
-    if not await _organization_exists(org_id):
+    supabase = get_supabase_client()
+    existing_res = supabase.from_("organizations").select("name").eq("org_id", org_id).single().execute()
+    if not existing_res.data:
         raise ValueError(f"Cannot update: Organization '{org_id}' does not exist.")
 
-    supabase = get_supabase_client()
+    current_name = existing_res.data.get("name") if existing_res.data else None
+
+    # If the user is attempting to change the name, ensure the new name is unique
+    new_name = data.get("name")
+    if new_name and new_name != current_name:
+        if await _organization_name_exists(new_name):
+            raise ValueError(f"Organization name '{new_name}' is already in use. Please choose a different name.")
+
+    # Auto-set updated_at timestamp if not provided
+    data.setdefault("updated_at", datetime.datetime.utcnow().isoformat())
 
     def op():
         return supabase.from_("organizations").update(data).eq("org_id", org_id).execute()
