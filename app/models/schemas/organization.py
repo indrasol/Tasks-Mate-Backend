@@ -38,17 +38,17 @@ class OrganizationUpdate(OrganizationBase):
 
 class OrganizationInDB(OrganizationBase):
     org_id: str
-    created_by: Optional[str]
-    updated_by: Optional[str]
-    is_deleted: Optional[bool]
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
-    deleted_at: Optional[datetime]
-    delete_reason: Optional[str]
-    project_count: Optional[int] = Field(0, description="Number of projects under the organization")
-    designations: Optional[List[str]] = Field(default_factory=list, description="List of designation names available in this organization")
-    role: Optional[str] = Field("owner", description="Role of the current user in the organization")
-    access_status: Optional[str] = Field(None, description="Access status: 'member' or 'invite'")
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
+    is_deleted: Optional[bool] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    deleted_at: Optional[datetime] = None
+    delete_reason: Optional[str] = None
+    project_count: int = Field(0, description="Number of projects under the organization")
+    designations: List[str] = Field(default_factory=list, description="List of designation names available in this organization")
+    role: str = Field("owner", description="Role of the current user in the organization")
+    access_status: Optional[str] = None
     class Config:
         orm_mode = True
 
