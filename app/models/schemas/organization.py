@@ -27,6 +27,8 @@ class OrgCard(BaseModel):
     member_count: int = Field(0, description="Number of members in the organization")
     created_by: Optional[str] = Field(None, description="Username of the creator")
     created_at: Optional[datetime] = Field(None, description="When the organization was created")
+    is_invite: Optional[bool] = Field(None, description="Is Organization Invite")
+    invitation_id: Optional[str] = Field(None, description="Invitation ID", example="O123456")
 
 class OrganizationCreate(OrganizationBase):
     pass
@@ -36,8 +38,8 @@ class OrganizationUpdate(OrganizationBase):
 
 class OrganizationInDB(OrganizationBase):
     org_id: str
-    created_by: Optional[UUID]
-    updated_by: Optional[UUID]
+    created_by: Optional[str]
+    updated_by: Optional[str]
     is_deleted: Optional[bool]
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
@@ -49,3 +51,7 @@ class OrganizationInDB(OrganizationBase):
     access_status: Optional[str] = Field(None, description="Access status: 'member' or 'invite'")
     class Config:
         orm_mode = True
+
+
+class OrganizationDelete(BaseModel):
+    delete_reason: Optional[str] = None

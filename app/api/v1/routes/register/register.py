@@ -1,5 +1,7 @@
 # routers/router.py
-from fastapi import APIRouter, Depends, HTTPException, Body, BackgroundTasks
+from typing import Dict
+from fastapi import APIRouter, Depends, HTTPException, Body, BackgroundTasks, Header
+import jwt
 # from sqlalchemy.ext.asyncio import AsyncSession
 # from sqlalchemy.future import select
 # from models.db_schema_models import User, Tenant, UserTenantAssociation
@@ -16,13 +18,23 @@ import asyncio
 
 router = APIRouter()
 
-# Create a custom verify function specifically for registration
-import jwt
-from fastapi import Header, HTTPException
-from app.config.settings import SUPABASE_SECRET_KEY
-from app.utils.logger import log_info
+# # Create a custom verify function specifically for registration
+# import jwt
+# from fastapi import Header, HTTPException
+# from app.config.settings import SUPABASE_SECRET_KEY
+# from app.utils.logger import log_info
 
-async def registration_verify_token(authorization: str = Header(None)):
+# from fastapi import Header, HTTPException
+# from typing import Dict
+# import jwt  # pyjwt
+# import logging
+
+# # Configure your logger as needed
+# log_info = logging.getLogger("auth").info
+
+# SUPABASE_SECRET_KEY = "your-secret-key"  # Replace or securely load from env
+
+async def registration_verify_token(authorization: str = Header(None)) -> Dict:
     """
     Verify JWT token for registration endpoint only.
     
@@ -38,39 +50,51 @@ async def registration_verify_token(authorization: str = Header(None)):
     try:
         if not authorization:
             raise HTTPException(status_code=401, detail="Missing token")
-    
-        # Extract token from header
-        token = authorization.split(" ")[1]
+
+        # Log and validate authorization header
+        log_info(f"Authorization header received: {authorization} (type: {type(authorization)})")
         
+        try:
+            scheme, token = authorization.strip().split(" ")
+            if scheme.lower() != "bearer":
+                raise HTTPException(status_code=401, detail="Invalid authorization scheme")
+        except ValueError:
+            raise HTTPException(status_code=401, detail="Invalid authorization header format")
+
+        if not isinstance(token, str):
+            raise HTTPException(status_code=401, detail="Token must be a string")
+
+        if not isinstance(SUPABASE_SECRET_KEY, str):
+            raise HTTPException(status_code=500, detail="Server misconfiguration: Invalid secret key")
+
         # Verify the JWT token
         try:
             payload = jwt.decode(
-                token, 
-                SUPABASE_SECRET_KEY, 
-                algorithms=["HS256"], 
-                audience="authenticated", 
+                token,
+                SUPABASE_SECRET_KEY,
+                algorithms=["HS256"],
+                audience="authenticated",
                 options={"leeway": 10, "verify_iat": False}
             )
         except jwt.ExpiredSignatureError:
             raise HTTPException(status_code=401, detail="Token expired")
         except jwt.InvalidTokenError as e:
             raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
-            
-        # Extract user ID
+
         user_id = payload.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid token payload: Missing user ID")
-            
+        if not user_id or not isinstance(user_id, str):
+            raise HTTPException(status_code=401, detail="Invalid token payload: Missing or invalid user ID")
+
         log_info(f"Registration token valid for user ID: {user_id}")
-        
-        # Return minimal user data needed for registration
+
         return {"id": user_id}
-        
+
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
         log_info(f"Registration token verification error: {str(e)}")
         raise HTTPException(status_code=500, detail="Authentication system error")
+
 
 
 

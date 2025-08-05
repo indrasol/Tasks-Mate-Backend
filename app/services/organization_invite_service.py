@@ -1,7 +1,45 @@
+from typing import Optional
 from app.core.db.supabase_db import get_supabase_client, safe_supabase_operation
+
+
+async def _generate_sequential_org_invite_id() -> str:
+    """Generate the next sequential organization ID in the format 'O0001'.
+    The numeric portion is strictly increasing even if organizations are
+    deleted, as we always look at the current maximum and increment it.
+    """
+    supabase = get_supabase_client()
+
+    def op():
+        # Because the numeric part is zero-padded, ordering by the full string
+        # gives us the highest numeric value as well.
+        return (
+            supabase
+            .from_("organization_invites")
+            .select("id")
+            .order("id", desc=True)
+            .limit(1)
+            .execute()
+        )
+
+    res = await safe_supabase_operation(op, "Failed to fetch last organization id")
+    last_id: Optional[str] = None
+    if res and res.data:
+        last_id = res.data[0]["id"]
+
+    last_num = 0
+    if last_id and isinstance(last_id, str) and last_id.startswith("I"):
+        try:
+            last_num = int(last_id[1:])
+        except ValueError:
+            last_num = 0
+
+    next_num = last_num + 1
+    # Pad with at least 4 digits (O0001, O0010, etc.) but grow automatically
+    return f"I{next_num:04d}"
 
 async def create_organization_invite(data: dict):
     supabase = get_supabase_client()
+    data["id"] = await _generate_sequential_org_invite_id()
     def op():        
         return supabase.from_("organization_invites").insert(data).execute()
     return await safe_supabase_operation(op, "Failed to create organization invite")

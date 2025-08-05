@@ -2,18 +2,16 @@
 -- Table order and constraints may not be valid for execution.
 
 CREATE TABLE public.designations (
-  designation_id uuid NOT NULL DEFAULT uuid_generate_v4(),
   name USER-DEFINED NOT NULL,
   metadata jsonb DEFAULT '{}'::jsonb,
   created_by uuid,
   updated_by uuid,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  designation_id text NOT NULL,
   CONSTRAINT designations_pkey PRIMARY KEY (designation_id)
 );
 CREATE TABLE public.organization_invites (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  org_id uuid NOT NULL,
   email text NOT NULL,
   designation uuid,
   role uuid,
@@ -25,16 +23,13 @@ CREATE TABLE public.organization_invites (
   updated_at timestamp with time zone DEFAULT now(),
   is_cancelled boolean DEFAULT false,
   cancel_date timestamp with time zone,
+  id text NOT NULL,
+  org_id text,
   CONSTRAINT organization_invites_pkey PRIMARY KEY (id),
-  CONSTRAINT organization_invites_designation_fkey FOREIGN KEY (designation) REFERENCES public.designations(designation_id),
-  CONSTRAINT organization_invites_role_fkey FOREIGN KEY (role) REFERENCES public.roles(role_id),
   CONSTRAINT organization_invites_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(org_id)
 );
 CREATE TABLE public.organization_members (
   user_id uuid NOT NULL,
-  org_id uuid NOT NULL,
-  designation uuid,
-  role uuid,
   invited_by uuid,
   is_active boolean DEFAULT true,
   invited_at timestamp with time zone,
@@ -43,25 +38,27 @@ CREATE TABLE public.organization_members (
   deleted_at timestamp with time zone,
   delete_reason text,
   deleted_by uuid,
-  CONSTRAINT organization_members_pkey PRIMARY KEY (user_id, org_id),
-  CONSTRAINT organization_members_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(org_id),
-  CONSTRAINT organization_members_designation_fkey FOREIGN KEY (designation) REFERENCES public.designations(designation_id),
-  CONSTRAINT organization_members_role_fkey FOREIGN KEY (role) REFERENCES public.roles(role_id)
+  role USER-DEFINED,
+  designation USER-DEFINED,
+  org_id text,
+  CONSTRAINT organization_members_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(org_id)
 );
 CREATE TABLE public.organizations (
-  org_id uuid NOT NULL DEFAULT uuid_generate_v4(),
   name text NOT NULL,
   description text,
   logo text,
   email text,
   metadata jsonb DEFAULT '{}'::jsonb,
-  created_by uuid,
-  updated_by uuid,
   is_deleted boolean DEFAULT false,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   deleted_at timestamp with time zone,
   delete_reason text,
+  designations ARRAY,
+  org_id text NOT NULL,
+  created_by text,
+  updated_by text,
+  deleted_by text,
   CONSTRAINT organizations_pkey PRIMARY KEY (org_id)
 );
 CREATE TABLE public.project_members (
@@ -77,8 +74,6 @@ CREATE TABLE public.project_members (
   deleted_at timestamp with time zone,
   delete_reason text,
   CONSTRAINT project_members_pkey PRIMARY KEY (project_id, user_id),
-  CONSTRAINT project_members_designation_fkey FOREIGN KEY (designation) REFERENCES public.designations(designation_id),
-  CONSTRAINT project_members_role_fkey FOREIGN KEY (role) REFERENCES public.roles(role_id),
   CONSTRAINT project_members_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(project_id)
 );
 CREATE TABLE public.project_resources (
@@ -99,7 +94,6 @@ CREATE TABLE public.project_resources (
 );
 CREATE TABLE public.projects (
   project_id text NOT NULL,
-  org_id uuid NOT NULL,
   name text NOT NULL,
   description text,
   metadata jsonb DEFAULT '{}'::jsonb,
@@ -114,18 +108,18 @@ CREATE TABLE public.projects (
   updated_at timestamp with time zone DEFAULT now(),
   deleted_at timestamp with time zone,
   delete_reason text,
+  org_id text,
   CONSTRAINT projects_pkey PRIMARY KEY (project_id),
   CONSTRAINT projects_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(org_id)
 );
 CREATE TABLE public.roles (
-  role_id uuid NOT NULL DEFAULT uuid_generate_v4(),
   name USER-DEFINED NOT NULL,
   permissions jsonb DEFAULT '{}'::jsonb,
   updated_at timestamp with time zone DEFAULT now(),
+  role_id text NOT NULL,
   CONSTRAINT roles_pkey PRIMARY KEY (role_id)
 );
 CREATE TABLE public.task_attachments (
-  attachment_id uuid NOT NULL DEFAULT uuid_generate_v4(),
   task_id text NOT NULL,
   title text,
   name text,
@@ -135,17 +129,20 @@ CREATE TABLE public.task_attachments (
   deleted_at timestamp with time zone,
   deleted_by uuid,
   is_inline boolean DEFAULT false,
-  CONSTRAINT task_attachments_pkey PRIMARY KEY (attachment_id)
+  attachment_id text NOT NULL,
+  CONSTRAINT task_attachments_pkey PRIMARY KEY (attachment_id),
+  CONSTRAINT task_attachments_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(task_id)
 );
 CREATE TABLE public.task_comments (
-  comment_id uuid NOT NULL DEFAULT uuid_generate_v4(),
   task_id text NOT NULL,
   title text,
   user_id uuid,
   content text NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT task_comments_pkey PRIMARY KEY (comment_id)
+  comment_id text NOT NULL,
+  CONSTRAINT task_comments_pkey PRIMARY KEY (comment_id),
+  CONSTRAINT task_comments_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(task_id)
 );
 CREATE TABLE public.tasks (
   task_id text NOT NULL,
@@ -168,11 +165,19 @@ CREATE TABLE public.tasks (
   CONSTRAINT tasks_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(project_id)
 );
 CREATE TABLE public.tasks_history (
-  history_id uuid NOT NULL DEFAULT uuid_generate_v4(),
   task_id text NOT NULL,
   title text,
   metadata ARRAY DEFAULT '{}'::jsonb[],
   hash_id text,
   updated_at timestamp with time zone DEFAULT now(),
+  history_id text NOT NULL,
   CONSTRAINT tasks_history_pkey PRIMARY KEY (history_id)
+);
+CREATE TABLE public.users (
+  id uuid NOT NULL,
+  username text NOT NULL UNIQUE,
+  email text NOT NULL UNIQUE,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT users_pkey PRIMARY KEY (id)
 );
