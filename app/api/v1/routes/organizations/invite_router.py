@@ -134,7 +134,9 @@ async def accept_invite(invite_id: str, user=Depends(verify_token)):
         "email": invite.data["email"],
         "role": invite.data["role"],
         "designation": invite.data["designation"],
-        "invited_by": invite.data["invited_by"]
+        "invited_by": invite.data["invited_by"],
+        "invited_at": invite.data.get("invited_at"),
+        "accepted_at": datetime.utcnow().isoformat()
     })
 
     result_invite = await delete_organization_invite(invite_id)

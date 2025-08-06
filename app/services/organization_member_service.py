@@ -5,10 +5,18 @@ from app.utils.logger import get_logger
 
 logger = get_logger()
 
+import datetime
+
 async def create_organization_member(data: dict):
     supabase = get_supabase_client()
+    # Ensure invited_at timestamp
+    now_iso = datetime.datetime.utcnow().isoformat()
+    data.setdefault("invited_at", now_iso)
+    # Auto-accept for owners (initial creator) if not provided
+    if data.get("role") == "owner":
+        data.setdefault("accepted_at", now_iso)
+
     def op():
-        # data = inject_audit_fields(data,None,"create")
         return supabase.from_("organization_members").insert(data).execute()
     return await safe_supabase_operation(op, "Failed to create organization member")
 
