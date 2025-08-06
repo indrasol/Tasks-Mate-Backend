@@ -7,13 +7,13 @@ async def get_org_role(user_id: str, org_id: str):
         return supabase.from_("organization_members").select("role").eq("user_id", user_id).eq("org_id", org_id).single().execute()
     result = await safe_supabase_operation(op, "Failed to fetch org membership role")
     if result.data and result.data.get("role"):
-        role_id = result.data.get("role")
+        role_name = result.data.get("role")
         # Try resolving to human-readable role name
-        role_details = await get_role(role_id)
-        if role_details and role_details.data and role_details.data.get("name"):
-            return role_details.data.get("name").lower()
+        # role_details = await get_role(role_id)
+        # if role_details and role_details.data and role_details.data.get("name"):
+        #     return role_details.data.get("name").lower()
         # Fallback to UUID/id string
-        return role_id
+        return role_name
     return None
 
 async def get_project_role(user_id: str, project_id: str):
@@ -22,10 +22,10 @@ async def get_project_role(user_id: str, project_id: str):
         return supabase.from_("project_members").select("role").eq("user_id", user_id).eq("project_id", project_id).single().execute()
     result = await safe_supabase_operation(op, "Failed to fetch project membership role")
     if result.data and result.data.get("role"):
-        role_id = result.data.get("role")
+        role_name = result.data.get("role")
         # Try resolving to human-readable role name
-        role_details = await get_role(role_id)
-        if role_details and role_details.data and role_details.data.get("name"):
-            return role_details.data.get("name").lower()
-        return role_id
+        # role_details = await get_role(role_id)
+        # if role_details and role_details.data and role_details.data.get("name"):
+        #     return role_details.data.get("name").lower()
+        return role_name
     return None
