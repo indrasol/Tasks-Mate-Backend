@@ -51,7 +51,5 @@ async def get_members_for_org(org_id, search=None, limit=20, offset=0, sort_by="
         query = query.eq("is_active", is_active)
     query = query.order(sort_by, desc=(sort_order == "desc"))
     result = query.range(offset, offset + limit - 1).execute()
-
-    logger.info(query)
-    logger.info(result.data)
+    
     return result.data

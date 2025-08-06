@@ -40,7 +40,7 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
     project_id = result.data[0]["project_id"]
 
     # Determine the project owner sent by client; fall back to creator
-    owner_name = project.owner or user["username"]
+    owner_name = project.owner or user["id"]
 
     # Ensure OWNER role exists
     role_res = await get_role_by_name(RoleEnum.OWNER.value)
@@ -57,16 +57,18 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
         "is_active": True,
         "created_by": user["username"],
     })
-    already_added.add(user["username"])
+    already_added.add(user["id"])
 
     # If creator differs, add them as ADMIN (or OWNER if admin role absent)
-    if owner_name != user["username"]:
+    if owner_name != user["id"]:
+        # user_details = await get_user_details_by_username(owner_name)
         await create_project_member({
-            "user_id": await get_user_details_by_username(owner_name)["id"],
+            # "user_id": user_details["id"],
+            "user_id": owner_name,
             "project_id": project_id,
             "role": owner_role,
             "is_active": True,
-            "created_by": owner_name,
+            "created_by":  user["username"],
         })
         already_added.add(owner_name)
 
@@ -79,12 +81,14 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
         for member in project.team_members:
             if member in already_added:
                 continue
+            # user_details = await get_user_details_by_username(member)
             await create_project_member({
-                "user_id": await get_user_details_by_username(member)["id"],
+                # "user_id": user_details["id"],
+                "user_id": member,
                 "project_id": project_id,
                 "role": RoleEnum.MEMBER.value,
                 "is_active": True,
-                "created_by": user["username"],
+                "created_by":  user["username"],
             })
             already_added.add(member)
 
@@ -97,14 +101,14 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
     card.team_members = list(already_added)
     return card
 
-@router.get("/", response_model=List[ProjectCard])
+@router.get("/{org_id}", response_model=List[ProjectCard])
 async def list_user_projects(org_id: str, user=Depends(verify_token), org_role=Depends(org_rbac)):
     """
     List all projects where the current user is a member.
     """
-    return await get_projects_for_user(user["id"], org_id)
+    return await get_projects_for_user(user["id"], org_id) 
 
-@router.get("/{project_id}", response_model=ProjectInDB)
+@router.get("/detail/{project_id}", response_model=ProjectInDB)
 async def read_project(project_id: str, user=Depends(verify_token), proj_role=Depends(project_rbac)):
     if not proj_role:
         raise HTTPException(status_code=403, detail="Not authorized")

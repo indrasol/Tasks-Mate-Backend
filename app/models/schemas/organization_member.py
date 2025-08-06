@@ -6,7 +6,8 @@ from datetime import datetime
 class OrganizationMemberBase(BaseModel):
     user_id: UUID = Field(..., description="User ID (UUID)", example="b3c1e2d4-1234-5678-9abc-def012345678")
     org_id: str = Field(..., description="Organization ID (UUID)", example="a1b2c3d4-5678-1234-9abc-def012345678")
-    email: str = Field(..., description="Invitee's email", example="invitee@example.com")
+    email: Optional[str] = Field(..., description="Invitee's email", example="invitee@example.com")
+    username: Optional[str] = Field(..., description="Invitee's username", example="invitee@example.com")
     designation: Optional[str] = Field(None, description="Designation ID (UUID)", example="d1e2f3g4-5678-1234-9abc-def012345678")
     role: Optional[str] = Field(None, description="Role ID (UUID)", example="r1e2f3g4-5678-1234-9abc-def012345678")
     invited_by: Optional[str] = Field(None, description="Inviter's User ID (UUID)", example="b3c1e2d4-1234-5678-9abc-def012345678")

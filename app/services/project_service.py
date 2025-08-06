@@ -66,7 +66,7 @@ async def create_project(data: dict):
     if "created_at" not in data:
         data["created_at"] = datetime.datetime.utcnow().isoformat()
 
-    async def op():
+    def op():
         return supabase.from_("projects").insert(data).execute()
 
     return await safe_supabase_operation(op, "Failed to create project")

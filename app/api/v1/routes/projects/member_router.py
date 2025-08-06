@@ -27,12 +27,12 @@ async def create_member(member: ProjectMemberCreate, user=Depends(verify_token),
 
 @router.get("/", response_model=List[ProjectMemberInDB])
 async def list_project_members(
-    project_id: str = Query(...),
+    project_id: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
-    limit: int = Query(20, ge=1, le=100),
-    offset: int = Query(0, ge=0),
-    sort_by: str = Query("updated_at"),
-    sort_order: str = Query("asc"),
+    limit: Optional[int] = Query(20, ge=1, le=100),
+    offset: Optional[int] = Query(0, ge=0),
+    sort_by: Optional[str] = Query("updated_at"),
+    sort_order: Optional[str] = Query("asc"),
     role: Optional[str] = Query(None),
     user=Depends(verify_token)
 ):

@@ -9,7 +9,7 @@ async def create_role(data: dict):
 async def get_role(role_id: str):
     supabase = get_supabase_client()
     def op():
-        return supabase.from_("roles").select("*").eq("role_id", role_id).single().execute()
+        return supabase.from_("roles").select("*").eq("role_id", role_id).limit(1).execute()
     return await safe_supabase_operation(op, "Failed to fetch role")
 
 

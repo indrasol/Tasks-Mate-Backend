@@ -44,6 +44,7 @@ async def create_org(org: OrganizationCreate, user=Depends(verify_token)):
         await create_organization_member({
             "user_id": user["id"],
             "email": user["email"],
+            "username": user["username"],
             "org_id": org_id,
             "designation": designation,
             "role": role,
