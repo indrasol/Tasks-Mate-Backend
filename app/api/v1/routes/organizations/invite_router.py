@@ -131,7 +131,8 @@ async def accept_invite(invite_id: str, user=Depends(verify_token)):
     result_member = await create_organization_member({
         "user_id": user["id"],
         "org_id": invite.data["org_id"],
-        "email": invite.data["email"],
+        "email": user["email"],
+        "username":user["username"],
         "role": invite.data["role"],
         "designation": invite.data["designation"],
         "invited_by": invite.data["invited_by"],
