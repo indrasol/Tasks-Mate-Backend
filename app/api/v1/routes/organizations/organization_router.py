@@ -40,6 +40,7 @@ async def create_org(org: OrganizationCreate, user=Depends(verify_token)):
         org_id = result_org.data[0]["org_id"]
         role = org_data.get("role", RoleEnum.OWNER.value)
         
+        now_iso = datetime.now().isoformat()
         await create_organization_member({
             "user_id": user["id"],
             "email": user["email"],
@@ -47,6 +48,8 @@ async def create_org(org: OrganizationCreate, user=Depends(verify_token)):
             "designation": designation,
             "role": role,
             "invited_by": user["username"],
+            "invited_at": now_iso,
+            "accepted_at": now_iso
         })
         
         # Return simplified OrgCard response
