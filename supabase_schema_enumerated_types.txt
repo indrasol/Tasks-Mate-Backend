@@ -1,0 +1,24 @@
+Schema	Name	Values	
+public
+
+task_status_enum	not_started, in_progress, blocked, completed, archived, on_hold	
+
+public
+
+project_status_enum	planning, in_progress, on_hold, completed, archived, not_started	
+
+public
+
+priority_enum	low, medium, high, critical, none	
+
+public
+
+invite_status_enum	pending, accepted, cancelled, expired	
+
+public
+
+role_enum	owner, member	
+
+public
+
+designation_enum	developer, designer, qa, product_manager, devops, analyst, team_lead, tester, director, manager, ui_engineer, devops_engineer

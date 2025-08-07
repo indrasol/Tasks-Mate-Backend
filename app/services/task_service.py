@@ -1,6 +1,45 @@
+from datetime import datetime
 from app.core.db.supabase_db import get_supabase_client, safe_supabase_operation
 
+
+async def _generate_sequential_task_id() -> str:
+    """Generate the next sequential task ID in the format 'T000000001'."""
+    supabase = get_supabase_client()
+    
+    def op():
+        return (
+            supabase
+            .from_("tasks")
+            .select("task_id")
+            .order("task_id", desc=True)
+            .limit(1)
+            .execute()
+        )
+
+    res = await safe_supabase_operation(op, "Failed to fetch last project id")
+    last_id: str | None = None
+    if res and res.data:
+        last_id = res.data[0]["task_id"]
+
+    last_num = 0
+    if last_id and isinstance(last_id, str) and last_id.startswith("T"):
+        try:
+            last_num = int(last_id[1:])
+        except ValueError:
+            last_num = 0
+
+    next_num = last_num + 1
+    # Pad with at least 5 digits (P00001, P00010, etc.)
+    return f"T{next_num:09d}"
+
+
 async def create_task(data: dict):
+
+    data["task_id"] = await _generate_sequential_task_id()
+    if data["assignee_id"]:
+        data["assignee_id"] = str(data["assignee_id"])
+    if data["due_date"]:
+        data["due_date"] = None
     supabase = get_supabase_client()
     def op():
         return supabase.from_("tasks").insert(data).execute()
