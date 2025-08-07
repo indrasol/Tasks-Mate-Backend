@@ -1,4 +1,5 @@
 from typing import List
+from app.models.enums import RoleEnum
 import uuid
 from app.core.db.supabase_db import get_supabase_client, safe_supabase_operation
 from app.models.schemas.project import ProjectCard
@@ -66,6 +67,11 @@ async def create_project(data: dict):
     if "created_at" not in data:
         data["created_at"] = datetime.datetime.utcnow().isoformat()
 
+    # Serialize any date/datetime objects to ISO strings so Supabase JSON encoder can handle them
+    for k, v in list(data.items()):
+        if isinstance(v, (datetime.date, datetime.datetime)):
+            data[k] = v.isoformat()
+
     def op():
         return supabase.from_("projects").insert(data).execute()
 
@@ -129,8 +135,23 @@ async def get_projects_for_user(user_id, org_id):
 
     # return []
 
-    if stats_result and stats_result.data:
-        return [ProjectCard(**project) for project in stats_result.data]
+    if not stats_result or not stats_result.data:
+        return []
 
-    return []
+    enriched: list[ProjectCard] = []
+    for raw in stats_result.data:
+        card = ProjectCard(**raw)
+        # Fetch members for each project (owner + team list)
+        mem_res = await safe_supabase_operation(
+            lambda: supabase.from_("project_members").select("user_id,role").eq("project_id", card.project_id).execute(),
+            "Failed to fetch project members",
+        )
+        if mem_res and mem_res.data:
+            card.team_members = [m["user_id"] for m in mem_res.data]
+            owner_row = next((m for m in mem_res.data if m.get("role") == RoleEnum.OWNER.value), None)
+            if owner_row:
+                card.owner = owner_row["user_id"]
+        enriched.append(card)
+
+    return enriched
 

@@ -26,8 +26,23 @@ class ProjectBase(BaseModel):
 
 class ProjectCreate(ProjectBase):
     pass
-class ProjectUpdate(ProjectBase):
-    pass
+
+class ProjectUpdate(BaseModel):
+    org_id: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    metadata: Optional[dict] = None
+    status: Optional[ProjectStatusEnum] = None
+    priority: Optional[PriorityEnum] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    is_active: Optional[bool] = None
+    delete_reason: Optional[str] = None
+    owner: Optional[str] = None
+    team_members: Optional[List[str]] = None
+
+    class Config:
+        orm_mode = True
 
 class ProjectInDB(ProjectBase):
     project_id: str

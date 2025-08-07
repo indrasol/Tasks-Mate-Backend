@@ -13,6 +13,7 @@ class ProjectStatusEnum(str, Enum):
     PLANNING = "planning"
     IN_PROGRESS = "in_progress"
     NOT_STARTED = "not_started"
+    ACTIVE = "active"
     COMPLETED = "completed"
     ARCHIVED = "archived"
     ON_HOLD = "on_hold"

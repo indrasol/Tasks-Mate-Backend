@@ -42,14 +42,16 @@ async def delete_organization_member(user_id: str, org_id: str):
 
 async def get_members_for_org(org_id, search=None, limit=20, offset=0, sort_by="updated_at", sort_order="asc", role=None, is_active=None):
     supabase = get_supabase_client()
-    query = supabase.from_("organization_members").select("*").eq("org_id", org_id)
+    # logger.info("Fetching members for org_id=%s", org_id)
+    query = supabase.from_("organization_members").select("*").eq("org_id", org_id).eq("is_active", True)
     # if search:
     #     query = query.ilike("designation", f"%{search}%")
     if role:
         query = query.eq("role", role)
-    if is_active is not None:
-        query = query.eq("is_active", is_active)
+    # if is_active is not None:
+    #     query = query.eq("is_active", is_active)
     query = query.order(sort_by, desc=(sort_order == "desc"))
     result = query.range(offset, offset + limit - 1).execute()
+    logger.info(result.data)
     
     return result.data
