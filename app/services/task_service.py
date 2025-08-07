@@ -1,4 +1,4 @@
-from datetime import datetime
+import datetime
 from app.core.db.supabase_db import get_supabase_client, safe_supabase_operation
 
 
@@ -7,6 +7,7 @@ async def _generate_sequential_task_id() -> str:
     supabase = get_supabase_client()
     
     def op():
+        
         return (
             supabase
             .from_("tasks")
@@ -36,6 +37,11 @@ async def _generate_sequential_task_id() -> str:
 async def create_task(data: dict):
 
     data["task_id"] = await _generate_sequential_task_id()
+
+    # Ensure we always have correct timestamps if not provided
+    if "created_at" not in data:
+        data["created_at"] = datetime.datetime.utcnow().isoformat()
+
     if data["assignee_id"]:
         data["assignee_id"] = str(data["assignee_id"])
     if data["due_date"]:

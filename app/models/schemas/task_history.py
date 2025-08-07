@@ -17,6 +17,6 @@ class TaskHistoryUpdate(TaskHistoryBase):
     pass
 
 class TaskHistoryInDB(TaskHistoryBase):
-    history_id: UUID
+    history_id: str
     class Config:
         orm_mode = True
