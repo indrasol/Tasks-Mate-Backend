@@ -1,4 +1,5 @@
 from typing import List
+from app.models.enums import RoleEnum
 import uuid
 from app.core.db.supabase_db import get_supabase_client, safe_supabase_operation
 from app.models.schemas.project import ProjectCard
@@ -66,6 +67,12 @@ async def create_project(data: dict):
     if "created_at" not in data:
         data["created_at"] = datetime.datetime.utcnow().isoformat()
 
+    # Serialize any date/datetime objects to ISO strings so Supabase JSON encoder can handle them
+    for k, v in list(data.items()):
+        if isinstance(v, (datetime.date, datetime.datetime)):
+            data[k] = v.isoformat()
+
+
     def op():
         return supabase.from_("projects").insert(data).execute()
 
@@ -89,31 +96,6 @@ async def delete_project(project_id: str):
         return supabase.from_("projects").delete().eq("project_id", project_id).execute()
     return await safe_supabase_operation(op, "Failed to delete project")
 
-# async def get_projects_for_user(user_id, org_id):
-#     supabase = get_supabase_client()
-#     result = supabase.from_("project_members").select("project_id").eq("user_id", user_id).execute()
-#     project_ids = [row["project_id"] for row in result.data]
-#     if not project_ids:
-#         return []
-#     # projects = supabase.from_("projects").select("*").in_("project_id", project_ids).eq("org_id", org_id).execute()
-#     # return projects.data
-
-#     """Get stats for a specific project"""
-#     async def _get_stats():
-#         result = supabase.from_("project_stats_view").select("*").in_("project_id", project_ids).execute()
-#         if result:
-#             return result
-#         return None
-    
-#     result = await safe_supabase_operation(_get_stats)
-
-#     if result:
-#         return result
-#     return None
-#     # if isinstance(result, dict):
-#     #     return List[ProjectCard(**result)]
-#     # return None
-
 
 async def get_projects_for_user(user_id, org_id):
     supabase = get_supabase_client()
@@ -124,13 +106,24 @@ async def get_projects_for_user(user_id, org_id):
 
     stats_result = await safe_supabase_operation(lambda:supabase.from_("project_card_view").select("*").in_("project_id", project_ids).execute())
 
-    # if stats_result:
-    #     return [ProjectCard(**project) for project in stats_result]
 
-    # return []
+    if not stats_result or not stats_result.data:
+        return []
 
-    if stats_result and stats_result.data:
-        return [ProjectCard(**project) for project in stats_result.data]
+    enriched: list[ProjectCard] = []
+    for raw in stats_result.data:
+        card = ProjectCard(**raw)
+        # Fetch members for each project (owner + team list)
+        mem_res = await safe_supabase_operation(
+            lambda: supabase.from_("project_members").select("user_id,role").eq("project_id", card.project_id).execute(),
+            "Failed to fetch project members",
+        )
+        if mem_res and mem_res.data:
+            card.team_members = [m["user_id"] for m in mem_res.data]
+            owner_row = next((m for m in mem_res.data if m.get("role") == RoleEnum.OWNER.value), None)
+            if owner_row:
+                card.owner = owner_row["user_id"]
+        enriched.append(card)
 
-    return []
+    return enriched
 

@@ -14,7 +14,7 @@ async def get_project_statistics(
 ):
     """Get statistics for a specific project"""
     # Check if user has access to the project
-    user_role = await get_project_role(current_user["user_id"], project_id)
+    user_role = await get_project_role(current_user["id"], project_id)
     if not user_role:
         raise HTTPException(status_code=403, detail="Access denied to this project")
     

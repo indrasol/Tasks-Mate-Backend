@@ -17,7 +17,7 @@ async def project_rbac(project_id: str, user=Depends(verify_token)):
 async def create_resource(resource: ProjectResourceCreate, project_id: str, user=Depends(verify_token), role=Depends(project_rbac)):
     if role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Not authorized")
-    result = await create_project_resource({**resource.dict(), "created_by": user["id"]})
+    result = await create_project_resource({**resource.dict(), "created_by": user["username"]})
     return result.data[0]
 
 @router.get("/", response_model=List[ProjectResourceInDB])
