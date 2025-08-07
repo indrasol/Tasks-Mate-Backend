@@ -54,6 +54,7 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
         "user_id": user["id"],
         "project_id": project_id,
         "role": owner_role,
+        "username": user["username"],
         "is_active": True,
         "created_by": user["username"],
     })
@@ -67,6 +68,7 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
             "user_id": owner_name,
             "project_id": project_id,
             "role": owner_role,
+            "username": owner_name,
             "is_active": True,
             "created_by":  user["username"],
         })
@@ -87,6 +89,7 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
                 "user_id": member,
                 "project_id": project_id,
                 "role": RoleEnum.MEMBER.value,
+                "username": member,
                 "is_active": True,
                 "created_by":  user["username"],
             })
