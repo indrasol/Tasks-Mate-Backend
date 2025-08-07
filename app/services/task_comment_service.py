@@ -1,6 +1,12 @@
+import datetime
 from app.core.db.supabase_db import get_supabase_client, safe_supabase_operation
 
 async def create_task_comment(data: dict):
+
+     # Ensure we always have correct timestamps if not provided
+    if "created_at" not in data:
+        data["created_at"] = datetime.datetime.utcnow().isoformat()
+        
     supabase = get_supabase_client()
     def op():
         return supabase.from_("task_comments").insert(data).execute()

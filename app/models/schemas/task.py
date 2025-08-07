@@ -11,13 +11,13 @@ class TaskBase(BaseModel):
     title: str = Field(..., description="Task title", example="Implement Login")
     description: Optional[str] = Field(None, description="Task description", example="Implement OAuth2 login flow.")
     status: Optional[TaskStatusEnum] = Field(TaskStatusEnum.NOT_STARTED, description="Task status", example=TaskStatusEnum.NOT_STARTED)
-    assignee_id: Optional[UUID] = Field(None, description="Assignee user ID", example="b3c1e2d4-1234-5678-9abc-def012345678")
+    assignee_id: Optional[str] = Field(None, description="Assignee user ID", example="b3c1e2d4-1234-5678-9abc-def012345678")
     due_date: Optional[date] = Field(None, description="Due date", example="2024-08-01")
     priority: Optional[PriorityEnum] = Field(PriorityEnum.NONE, description="Task priority", example=PriorityEnum.HIGH)
     tags: Optional[List[str]] = Field([], description="List of tags", example=["backend", "auth"])
     metadata: Optional[List[dict]] = Field([], description="Additional metadata", example=[{"field": "status", "old": "not_started", "new": "in_progress"}])
-    created_by: Optional[UUID] = Field(None, description="Who created the task")
-    updated_by: Optional[UUID] = Field(None, description="Who last updated the task")
+    created_by: Optional[str] = Field(None, description="Who created the task")
+    updated_by: Optional[str] = Field(None, description="Who last updated the task")
 
 class TaskCreate(TaskBase):
     pass

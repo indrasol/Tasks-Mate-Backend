@@ -104,7 +104,7 @@ async def get_projects_for_user(user_id, org_id):
     if not project_ids:
         return []   
 
-    stats_result = await safe_supabase_operation(lambda:supabase.from_("project_card_view").select("*").in_("project_id", project_ids).execute())
+    stats_result = await safe_supabase_operation(lambda:supabase.from_("project_card_view").select("*").in_("project_id", project_ids).eq("org_id", org_id).execute())
 
 
     if not stats_result or not stats_result.data:
