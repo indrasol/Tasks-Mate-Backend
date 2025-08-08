@@ -33,3 +33,11 @@ class TaskInDB(TaskBase):
     updated_at: Optional[datetime]
     class Config:
         orm_mode = True
+
+class TaskCardView(TaskBase):
+    task_id: str
+    created_at: Optional[datetime]
+    updated_at: Optional[datetime]
+    comments: Optional[int]
+    class Config:
+        orm_mode = True

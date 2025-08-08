@@ -122,3 +122,50 @@ select
 from public.projects p
 left join task_rollup   tr on tr.project_id = p.project_id
 left join member_rollup mr on mr.project_id = p.project_id;
+
+
+drop view if exists public.task_card_view;
+
+create or replace view public.task_card_view as
+select
+    t.task_id,
+    t.org_id,
+    t.project_id,
+    t.sub_tasks,
+    t.dependencies,
+    t.title,
+    t.description,
+    t.start_date,
+    t.due_date,
+    t.metadata,
+    t.status,
+    t.priority,
+    t.tags,
+    t.created_by,
+    t.assignee,
+    t.updated_by,
+    t.created_at,
+    t.updated_at,
+    coalesce(count(tc.comment_id), 0) as comments
+from public.tasks t
+left join public.task_comments tc
+    on t.task_id = tc.task_id
+group by
+    t.task_id,
+    t.org_id,
+    t.project_id,
+    t.sub_tasks,
+    t.dependencies,
+    t.title,
+    t.description,
+    t.start_date,
+    t.due_date,
+    t.metadata,
+    t.status,
+    t.priority,
+    t.tags,
+    t.created_by,
+    t.assignee,
+    t.updated_by,
+    t.created_at,
+    t.updated_at;
