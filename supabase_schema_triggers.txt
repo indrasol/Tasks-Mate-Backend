@@ -1,0 +1,91 @@
+Name	Table	Function	Events	Orientation	Enabled	
+set_updated_at_designations	
+designations
+
+set_updated_at
+
+BEFORE UPDATE
+ROW
+
+
+set_updated_at_organization_members	
+organization_members
+
+set_updated_at
+
+BEFORE UPDATE
+ROW
+
+
+set_updated_at_organizations	
+organizations
+
+set_updated_at
+
+BEFORE UPDATE
+ROW
+
+
+set_updated_at_project_members	
+project_members
+
+set_updated_at
+
+BEFORE UPDATE
+ROW
+
+
+set_updated_at_project_resources	
+project_resources
+
+set_updated_at
+
+BEFORE UPDATE
+ROW
+
+
+set_updated_at_projects	
+projects
+
+set_updated_at
+
+BEFORE UPDATE
+ROW
+
+
+set_updated_at_roles	
+roles
+
+set_updated_at
+
+BEFORE UPDATE
+ROW
+
+
+set_updated_at_task_comments	
+task_comments
+
+set_updated_at
+
+BEFORE UPDATE
+ROW
+
+
+set_updated_at_tasks	
+tasks
+
+set_updated_at
+
+BEFORE UPDATE
+ROW
+
+
+set_updated_at_tasks_history	
+tasks_history
+
+set_updated_at
+
+BEFORE UPDATE
+ROW
+
+

@@ -1,0 +1,124 @@
+-- helper view (simplified)
+drop view project_stats_view
+create or replace view public.project_stats_view as
+select
+p.project_id,
+-- total tasks (ignore soft‑deleted ones)
+count(t.*)  as tasks_total,
+ -- completed tasks
+count(*) filter (where t.status = 'completed') as tasks_completed,
+-- safe percent   → 0 when no tasks
+case
+when count(t.*) = 0 then 0
+else 
+round(100.0 * count(*) filter (where t.status = 'completed') / count(t.*),1) end as progress_percent
+from public.projects p
+left join public.tasks t using(project_id)
+group  by p.project_id;
+
+drop view project_card_view
+create or replace view public.project_card_view as
+select
+p.project_id,
+p.org_id,
+p.name,
+p.description,
+p.start_date,
+p.end_date,
+p.metadata,
+p.status,
+p.priority,
+p.created_by,
+p.project_owner,
+p.updated_by,
+p.is_active,
+p.delete_reason,
+p.team_members,
+-- total tasks (ignore soft‑deleted ones)
+COALESCE(count(t.*),0)  as tasks_total,
+ -- completed tasks
+COALESCE(count(*) filter (where t.status = 'completed'),0) as tasks_completed,
+-- safe percent   → 0 when no tasks
+case
+when COALESCE(count(t.*),0) = 0 then 0
+else 
+round(100.0 * count(*) filter (where t.status = 'completed') / count(t.*),1) end as progress_percent
+from public.projects p
+left join public.tasks t using(project_id)
+group  by 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
+
+
+-- Project Counts per Org view
+-- --------------------------------------------------------------------
+--  VIEW: organisation_project_counts
+--  Purpose : 1 row per organisation with a live project_count
+-- --------------------------------------------------------------------
+drop view organization_project_counts_view
+drop view organization_stats_view
+create or replace view public.organization_stats_view as
+select
+    o.org_id,
+    o.name as org_name,
+    o.description AS org_description,
+    o.created_by,
+    o.created_at,
+    count(p.project_id)::int as project_count,
+    count(om.user_id)::int as member_count
+from
+    organizations  o
+left join
+    projects       p  on p.org_id = o.org_id
+left join
+    organization_members om  on om.org_id = o.org_id
+group by
+    1,2,3,4,5
+order by
+    o.name;
+
+
+-- Projects Stats views
+drop view projects_stats_view
+create or replace view public.project_stats_view as
+with task_rollup as (
+    select
+        t.project_id,
+        count(*) as total_tasks,
+        count(*) filter (where t.status = 'completed')    as completed_tasks
+    from public.tasks t
+    group by t.project_id
+),
+member_rollup as (
+    select
+        pm.project_id,
+        count(distinct pm.user_id) as team_members
+    from public.project_members pm
+    group by pm.project_id
+)
+select
+    p.project_id,
+
+    /* ---------- task-based metrics ---------- */
+    coalesce(tr.completed_tasks, 0)              as tasks_completed,
+    coalesce(tr.total_tasks, 0)                  as tasks_total,
+
+    /* Guard against divide-by-zero              */
+    case when coalesce(tr.total_tasks, 0) = 0
+         then 0
+         else round(
+                (tr.completed_tasks::numeric / tr.total_tasks) * 100
+              )::int
+    end                                          as progress_percent,
+
+    /* ---------- team size ---------- */
+    coalesce(mr.team_members, 0)                 as team_members,
+
+    /* ---------- time metrics ---------- */
+    greatest(                                    -- never negative
+        0,
+        (p.end_date::date - current_date)        -- days left
+    )::int                                       as days_left,
+    (p.end_date::date - p.start_date::date)::int as duration_days
+
+from public.projects p
+left join task_rollup   tr on tr.project_id = p.project_id
+left join member_rollup mr on mr.project_id = p.project_id;

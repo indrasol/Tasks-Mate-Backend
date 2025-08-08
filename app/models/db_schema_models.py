@@ -165,42 +165,42 @@ class Task(Base):
     title = Column(Text, nullable=False)
     description = Column(Text)
     status = Column(SQLAlchemyEnum(TaskStatusEnum), default=TaskStatusEnum.NOT_STARTED)
-    assignee_id = Column(UUID(as_uuid=True))
+    assignee_id = Column(Text)
     due_date = Column(Date)
     priority = Column(SQLAlchemyEnum(PriorityEnum), default=PriorityEnum.NONE)
     tags = Column(ARRAY(Text), default=list)
     metadata = Column(ARRAY(JSON), default=list)
-    created_by = Column(UUID(as_uuid=True))
-    updated_by = Column(UUID(as_uuid=True))
+    created_by = Column(Text)
+    updated_by = Column(Text)
     created_at = Column(DateTime)
     updated_at = Column(DateTime)
 
 class TaskAttachment(Base):
     __tablename__ = "task_attachments"
-    attachment_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    attachment_id = Column(Text, primary_key=True)
     task_id = Column(Text, nullable=False)
     title = Column(Text)
     name = Column(Text)
     url = Column(Text)
-    uploaded_by = Column(UUID(as_uuid=True))
+    uploaded_by = Column(Text)
     uploaded_at = Column(DateTime)
     deleted_at = Column(DateTime)
-    deleted_by = Column(UUID(as_uuid=True))
+    deleted_by = Column(Text)
     is_inline = Column(Boolean, default=False)
 
 class TaskComment(Base):
     __tablename__ = "task_comments"
-    comment_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    comment_id = Column(Text, primary_key=True)
     task_id = Column(Text, nullable=False)
     title = Column(Text)
-    user_id = Column(UUID(as_uuid=True))
+    created_by = Column(Text)
     content = Column(Text, nullable=False)
     created_at = Column(DateTime)
     updated_at = Column(DateTime)
 
 class TaskHistory(Base):
     __tablename__ = "tasks_history"
-    history_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    history_id = Column(Text, primary_key=True)
     task_id = Column(Text, nullable=False)
     title = Column(Text)
     metadata = Column(ARRAY(JSON), default=list)

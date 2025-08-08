@@ -1,0 +1,179 @@
+schema
+
+public
+
+Search for an index
+
+Create index
+Schema	Table	Name	
+public
+
+designations
+
+designations_pkey
+
+
+View definition
+
+public
+
+organization_members
+
+idx_org_members_user
+
+
+View definition
+
+public
+
+task_attachments
+
+idx_task_attach_task
+
+
+View definition
+
+public
+
+task_comments
+
+idx_task_comments_task
+
+
+View definition
+
+public
+
+tasks_history
+
+idx_tasks_history_task
+
+
+View definition
+
+public
+
+organization_invites
+
+organization_invites_pkey
+
+
+View definition
+
+public
+
+organization_members
+
+organization_members_pkey
+
+
+View definition
+
+public
+
+organizations
+
+organizations_pkey
+
+
+View definition
+
+public
+
+project_members
+
+project_members_pkey
+
+
+View definition
+
+public
+
+project_resources
+
+project_resources_pkey
+
+
+View definition
+
+public
+
+projects
+
+projects_pkey
+
+
+View definition
+
+public
+
+roles
+
+roles_pkey
+
+
+View definition
+
+public
+
+task_attachments
+
+task_attachments_pkey
+
+
+View definition
+
+public
+
+task_comments
+
+task_comments_pkey
+
+
+View definition
+
+public
+
+tasks_history
+
+tasks_history_pkey
+
+
+View definition
+
+public
+
+tasks
+
+tasks_pkey
+
+
+View definition
+
+public
+
+users
+
+users_email_key
+
+
+View definition
+
+public
+
+users
+
+users_pkey
+
+
+View definition
+
+public
+
+users
+
+users_username_key
+
+
+View definition
+
