@@ -20,7 +20,7 @@ async def create_task_route(task: TaskCreate, user=Depends(verify_token)):
     # if role not in ["owner", "admin"]:
     #     raise HTTPException(status_code=403, detail="Not authorized")
     
-    result = await create_task({**task.dict(), "created_by": user["id"]})
+    result = await create_task({**task.dict(), "created_by": user["username"]})
     return result.data[0]
 
 @router.get("/", response_model=List[TaskInDB])
