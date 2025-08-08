@@ -47,7 +47,7 @@ async def _generate_sequential_task_id() -> str:
 
     next_num = last_num + 1
     # Pad with at least 5 digits (P00001, P00010, etc.)
-    return f"T{next_num:09d}"
+    return f"T{next_num:06d}"
 
 
 async def create_task(data: dict):
@@ -90,7 +90,7 @@ async def delete_task(task_id: str):
 
 async def get_all_tasks(search=None, limit=20, offset=0, sort_by="title", sort_order="asc", status=None):
     supabase = get_supabase_client()
-    query = supabase.from_("tasks").select("*")
+    query = supabase.from_("task_card_view").select("*")
     if search:
         query = query.ilike("title", f"%{search}%")
     if status:
@@ -101,7 +101,7 @@ async def get_all_tasks(search=None, limit=20, offset=0, sort_by="title", sort_o
 
 async def get_tasks_for_project(project_id, search=None, limit=20, offset=0, sort_by="title", sort_order="asc", status=None):
     supabase = get_supabase_client()
-    query = supabase.from_("tasks").select("*").eq("project_id", project_id)
+    query = supabase.from_("task_card_view").select("*").eq("project_id", project_id)
     if search:
         query = query.ilike("title", f"%{search}%")
     if status:
