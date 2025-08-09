@@ -1,7 +1,7 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from app.api.v1.routes.projects.proj_rbac import project_rbac
-from app.models.schemas.task import TaskCreate, TaskUpdate, TaskInDB
+from app.models.schemas.task import TaskCreate, TaskUpdate, TaskInDB, TaskCardView
 from app.services.task_service import create_task, get_task, update_task, delete_task, get_all_tasks, get_tasks_for_project
 from app.services.auth_handler import verify_token
 from app.services.rbac import get_project_role
@@ -22,7 +22,7 @@ async def create_task_route(task: TaskCreate, user=Depends(verify_token)):
     result = await create_task({**task.dict(), "created_by": user["username"]})
     return result.data[0]
 
-@router.get("/", response_model=List[TaskInDB])
+@router.get("/", response_model=List[TaskCardView])
 async def list_all_tasks(
     user=Depends(verify_token),
     project_id: Optional[str] = Query(None),
