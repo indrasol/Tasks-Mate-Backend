@@ -33,6 +33,7 @@ async def _generate_sequential_comment_id() -> str:
     return f"C{next_num:05d}"
 
 async def create_task_comment(data: dict):
+    """Create a new comment or reply."""
     # Ensure we always have correct timestamps if not provided
     if "created_at" not in data:
         data["created_at"] = datetime.datetime.utcnow().isoformat()
@@ -44,11 +45,29 @@ async def create_task_comment(data: dict):
     # Some databases may still expect the legacy 'comment' column
     if data.get("content") and not data.get("comment"):
         data["comment"] = data["content"]
+        
+    # If this is a reply, verify the parent exists
+    parent_id = data.get("parent_comment_id")
+    if parent_id:
+        parent = await get_task_comment(parent_id)
+        if not parent.data:
+            raise ValueError("Parent comment not found")
+            
+        # Ensure we're not creating a circular reference
+        if parent.data.get("parent_comment_id"):
+            raise ValueError("Cannot reply to a reply")
 
     supabase = get_supabase_client()
     def op():
         return supabase.from_("task_comments").insert(data).execute()
-    return await safe_supabase_operation(op, "Failed to create task comment")
+        
+    result = await safe_supabase_operation(op, "Failed to create task comment")
+    
+    # If this is a reply, update the parent's updated_at
+    if parent_id and result.data:
+        await update_task_comment(parent_id, {"updated_at": data["created_at"]})
+    
+    return result
 
 async def get_task_comment(comment_id: str):
     supabase = get_supabase_client()
@@ -71,12 +90,53 @@ async def delete_task_comment(comment_id: str, _audit: dict | None = None):
         return supabase.from_("task_comments").delete().eq("comment_id", comment_id).execute()
     return await safe_supabase_operation(op, "Failed to delete task comment")
 
-async def get_comments_for_task(task_id, search=None, limit=20, offset=0, sort_by="created_at", sort_order="asc"):
+async def get_comments_for_task(task_id, search=None, limit=100, offset=0, sort_by="created_at", sort_order="asc"):
+    """Fetch comments for a task, including replies in a nested structure."""
     supabase = get_supabase_client()
-    query = supabase.from_("task_comments").select("*").eq("task_id", task_id)
+    
+    # First, fetch all comments for the task
+    query = supabase.from_("task_comments").select("*")\
+        .eq("task_id", task_id)
+        
     if search:
-        # The column that stores the actual text body is `content`
         query = query.ilike("content", f"%{search}%")
+    
+    # Sort by creation date by default
     query = query.order(sort_by, desc=(sort_order == "desc"))
-    result = query.range(offset, offset + limit - 1).execute()
-    return result.data
+    
+    # Get all comments (we'll handle pagination after building the tree)
+    result = await safe_supabase_operation(
+        lambda: query.execute(),
+        "Failed to fetch task comments"
+    )
+    
+    if not result or not result.data:
+        return []
+    
+    # Build comment tree
+    comments_map = {}
+    root_comments = []
+    
+    # First pass: map all comments by ID
+    for comment in result.data:
+        comment['replies'] = []
+        comments_map[comment['comment_id']] = comment
+    
+    # Second pass: build the tree
+    for comment in result.data:
+        parent_id = comment.get('parent_comment_id')
+        if parent_id and parent_id in comments_map:
+            # This is a reply, add it to its parent's replies
+            comments_map[parent_id]['replies'].append(comment)
+        elif not parent_id:
+            # This is a root-level comment
+            root_comments.append(comment)
+    
+    # Sort replies by creation date
+    for comment in comments_map.values():
+        comment['replies'].sort(key=lambda x: x.get('created_at', ''))
+    
+    # Apply pagination to root comments only
+    paginated_comments = root_comments[offset:offset + limit]
+    
+    return paginated_comments
