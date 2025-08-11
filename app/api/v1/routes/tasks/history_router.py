@@ -12,7 +12,7 @@ async def project_rbac(project_id: str, user=Depends(verify_token)):
         raise HTTPException(status_code=403, detail="Not a member of this project")
     return role
 
-@router.post("/", response_model=TaskHistoryInDB)
+@router.post("", response_model=TaskHistoryInDB)
 async def create_history(history: TaskHistoryCreate, project_id: str, user=Depends(verify_token), role=Depends(project_rbac)):
     if role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Not authorized")

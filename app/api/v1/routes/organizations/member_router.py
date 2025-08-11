@@ -14,7 +14,7 @@ router = APIRouter()
 #         raise HTTPException(status_code=403, detail="Not a member of this organization")
 #     return role
 
-@router.post("/", response_model=OrganizationMemberInDB)
+@router.post("", response_model=OrganizationMemberInDB)
 async def create_member(member: OrganizationMemberCreate, user=Depends(verify_token), role=Depends(org_rbac)):
     if role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Not authorized")

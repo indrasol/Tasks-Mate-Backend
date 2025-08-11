@@ -19,12 +19,12 @@ async def org_rbac(org_id: str, user=Depends(verify_token)):
         raise HTTPException(status_code=403, detail="Not a member of this organization")
     return role
 
-@router.post("/", response_model=DesignationInDB)
+@router.post("", response_model=DesignationInDB)
 async def create_designation_route(designation_data: DesignationCreate, user=Depends(verify_token)):
     result = await create_designation(designation_data.model_dump())
     return result.data[0]
 
-@router.get("/", response_model=List[DesignationInDB])
+@router.get("", response_model=List[DesignationInDB])
 async def list_designations(
     org_id: str | None = None,
     user=Depends(verify_token)
