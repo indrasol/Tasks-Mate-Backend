@@ -24,6 +24,8 @@ async def _generate_sequential_resource_id() -> str:
     return f"RE{last_num+1:04d}"
 
 async def create_project_resource(data: dict):
+
+    print(f"Creating project resource: {data}")
     # Map flexible keys
     if "name" in data and "resource_name" not in data:
         data["resource_name"] = data.pop("name")

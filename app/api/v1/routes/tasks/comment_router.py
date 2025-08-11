@@ -15,9 +15,15 @@ async def project_rbac(project_id: str, user=Depends(verify_token)):
 
 @router.post("/", response_model=TaskCommentInDB)
 async def create_comment(comment: TaskCommentCreate, project_id: str, user=Depends(verify_token), role=Depends(project_rbac)):
-    if role not in ["owner", "admin"]:
-        raise HTTPException(status_code=403, detail="Not authorized")
-    result = await create_task_comment({**comment.dict(), "created_by": user["id"]})
+    # Allow any project member to comment
+    payload = {**comment.dict()}
+    # Ensure content mirrors legacy column if needed
+    if payload.get("content") and not payload.get("comment"):
+        payload["comment"] = payload["content"]
+    # Stamp creator
+    # Prefer a human-friendly identifier for display purposes
+    payload["created_by"] = user.get("username") or user.get("email") or user.get("id")
+    result = await create_task_comment(payload)
     return result.data[0]
 
 @router.get("/", response_model=List[TaskCommentInDB])
@@ -43,14 +49,32 @@ async def read_comment(comment_id: str, project_id: str, user=Depends(verify_tok
 
 @router.put("/{comment_id}", response_model=TaskCommentInDB)
 async def update_comment(comment_id: str, comment: TaskCommentUpdate, project_id: str, user=Depends(verify_token), role=Depends(project_rbac)):
+    # Owners/Admins can edit any comment; others can only edit their own
     if role not in ["owner", "admin"]:
-        raise HTTPException(status_code=403, detail="Not authorized")
-    result = await update_task_comment(comment_id, {**comment.dict(exclude_unset=True), "updated_by": user["id"]})
+        existing = await get_task_comment(comment_id)
+        if not existing or not existing.data:
+            raise HTTPException(status_code=404, detail="Not found")
+        created_by = str(existing.data.get("created_by") or "").lower()
+        user_identifiers = {str(user.get("id") or "").lower(), str(user.get("username") or "").lower(), str(user.get("email") or "").lower()}
+        if created_by not in user_identifiers:
+            raise HTTPException(status_code=403, detail="Not authorized")
+    payload = comment.dict(exclude_unset=True)
+    # Keep legacy column in sync if `content` provided
+    if payload.get("content"):
+        payload.setdefault("comment", payload["content"]) 
+    result = await update_task_comment(comment_id, payload)
     return result.data[0]
 
 @router.delete("/{comment_id}")
 async def delete_comment(comment_id: str, project_id: str, user=Depends(verify_token), role=Depends(project_rbac)):
-    if role != "owner":
-        raise HTTPException(status_code=403, detail="Only owner can delete comment")
+    # Owners/Admins can delete any comment; creators can delete their own
+    if role not in ["owner", "admin"]:
+        existing = await get_task_comment(comment_id)
+        if not existing or not existing.data:
+            raise HTTPException(status_code=404, detail="Not found")
+        created_by = str(existing.data.get("created_by") or "").lower()
+        user_identifiers = {str(user.get("id") or "").lower(), str(user.get("username") or "").lower(), str(user.get("email") or "").lower()}
+        if created_by not in user_identifiers:
+            raise HTTPException(status_code=403, detail="Only owner/admin or comment author can delete")
     await delete_task_comment(comment_id, {"deleted_by": user["id"]})
     return {"ok": True}

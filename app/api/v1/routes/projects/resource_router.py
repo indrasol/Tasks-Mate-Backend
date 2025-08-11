@@ -54,5 +54,5 @@ async def update_resource(resource_id: str, resource: ProjectResourceUpdate, pro
 async def delete_resource(resource_id: str, project_id: str, user=Depends(verify_token), role=Depends(project_rbac)):
     if role != "owner":
         raise HTTPException(status_code=403, detail="Only owner can delete resource")
-    await delete_project_resource(resource_id, {"deleted_by": user["id"]})
+    await delete_project_resource(resource_id)
     return {"ok": True}

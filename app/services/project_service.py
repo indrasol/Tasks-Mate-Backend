@@ -86,6 +86,10 @@ async def get_project(project_id: str):
 
 async def update_project(project_id: str, data: dict):
     supabase = get_supabase_client()
+    # Ensure date/datetime values are JSON serializable
+    for k, v in list(data.items()):
+        if isinstance(v, (datetime.date, datetime.datetime)):
+            data[k] = v.isoformat()
     def op():
         return supabase.from_("projects").update(data).eq("project_id", project_id).execute()
     return await safe_supabase_operation(op, "Failed to update project")
