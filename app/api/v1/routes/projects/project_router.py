@@ -131,5 +131,5 @@ async def update_project_route(project_id: str, project: ProjectUpdate, user=Dep
 async def delete_project_route(project_id: str, user=Depends(verify_token), proj_role=Depends(project_rbac)):
     if proj_role != "owner":
         raise HTTPException(status_code=403, detail="Only owner can delete project")
-    await delete_project(project_id, {"deleted_by": user["id"]})
+    await delete_project(project_id)
     return {"ok": True}

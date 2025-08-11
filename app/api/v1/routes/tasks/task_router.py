@@ -1,8 +1,8 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from app.api.v1.routes.projects.proj_rbac import project_rbac
 from app.models.schemas.task import TaskCreate, TaskUpdate, TaskInDB, TaskCardView
-from app.services.task_service import create_task, get_task, update_task, delete_task, get_all_tasks, get_tasks_for_project
+from app.services.task_service import create_task, get_task, update_task, delete_task, get_all_tasks, get_tasks_for_project, add_subtask, remove_subtask
 from app.services.auth_handler import verify_token
 from app.services.rbac import get_project_role
 
@@ -25,6 +25,7 @@ async def create_task_route(task: TaskCreate, user=Depends(verify_token)):
 @router.get("/", response_model=List[TaskCardView])
 async def list_all_tasks(
     user=Depends(verify_token),
+    org_id: Optional[str] = Query(None),
     project_id: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     limit: int = Query(20, ge=1, le=100),
@@ -37,8 +38,8 @@ async def list_all_tasks(
         role = await get_project_role(user["id"], project_id)
         if not role:
             raise HTTPException(status_code=403, detail="Not a member of this project")
-        return await get_tasks_for_project(project_id, search=search, limit=limit, offset=offset, sort_by=sort_by, sort_order=sort_order, status=status)
-    return await get_all_tasks(search=search, limit=limit, offset=offset, sort_by=sort_by, sort_order=sort_order, status=status)
+        return await get_tasks_for_project(project_id, search=search, limit=limit, offset=offset, sort_by=sort_by, sort_order=sort_order, status=status, org_id=org_id)
+    return await get_all_tasks(search=search, limit=limit, offset=offset, sort_by=sort_by, sort_order=sort_order, status=status, org_id=org_id)
 
 @router.get("/{task_id}", response_model=TaskInDB)
 async def read_task(task_id: str, user=Depends(verify_token)):
@@ -56,7 +57,49 @@ async def update_task_route(task_id: str, task: TaskUpdate, user=Depends(verify_
 
 @router.delete("/{task_id}")
 async def delete_task_route(task_id: str, user=Depends(verify_token)):
-    # if role != "owner":
-    #     raise HTTPException(status_code=403, detail="Only owner can delete task")
-    await delete_task(task_id, {"deleted_by": user["id"]})
+    # Authorization: allow project owner/admin OR task creator/assignee
+    task_result = await get_task(task_id)
+    if not task_result or not getattr(task_result, "data", None):
+        raise HTTPException(status_code=404, detail="Not found")
+
+    task_data = task_result.data
+    project_id = task_data.get("project_id")
+    allowed = False
+
+    # Check project role if available
+    try:
+        if project_id:
+            role = await get_project_role(user["id"], project_id)
+            if role in ["owner", "admin"]:
+                allowed = True
+    except Exception:
+        # If role check fails, continue to check ownership below
+        pass
+
+    # Check if current user created the task or is the assignee
+    if (
+        (task_data.get("created_by") and task_data.get("created_by") == user.get("username"))
+        or (task_data.get("assignee") and task_data.get("assignee") == user.get("username"))
+    ):
+        allowed = True
+
+    if not allowed:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this task")
+
+    await delete_task(task_id)
     return {"ok": True}
+
+# ---------------------- Subtask Management ----------------------
+
+@router.post("/{task_id}/subtasks", response_model=TaskInDB)
+async def add_subtask_to_task(task_id: str, subtask_id: str = Body(..., embed=True), user=Depends(verify_token)):
+    """Append a subtask to an existing task."""
+    result = await add_subtask(task_id, subtask_id)
+    return result.data[0] if hasattr(result, "data") and isinstance(result.data, list) else result.data
+
+
+@router.delete("/{task_id}/subtasks/{subtask_id}", response_model=TaskInDB)
+async def remove_subtask_from_task(task_id: str, subtask_id: str, user=Depends(verify_token)):
+    """Remove a subtask from an existing task."""
+    result = await remove_subtask(task_id, subtask_id)
+    return result.data[0] if hasattr(result, "data") and isinstance(result.data, list) else result.data

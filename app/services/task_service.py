@@ -1,5 +1,6 @@
 import datetime
 from app.core.db.supabase_db import get_supabase_client, safe_supabase_operation
+from fastapi import HTTPException
 
 
 
@@ -77,10 +78,60 @@ async def get_task(task_id: str):
     return await safe_supabase_operation(op, "Failed to fetch task")
 
 async def update_task(task_id: str, data: dict):
+    # Ensure date/datetime objects are JSON serializable
+    if data.get("assignee"):
+        data["assignee"] = str(data["assignee"])
+    # Normalize known date fields
+    if data.get("start_date") and hasattr(data["start_date"], "isoformat"):
+        data["start_date"] = data["start_date"].isoformat()
+    if data.get("due_date") and hasattr(data["due_date"], "isoformat"):
+        data["due_date"] = data["due_date"].isoformat()
+    # Fallback: serialize any lingering date/datetime values in payload
+    for key, value in list(data.items()):
+        if hasattr(value, "isoformat"):
+            try:
+                data[key] = value.isoformat()
+            except Exception:
+                pass
     supabase = get_supabase_client()
     def op():
         return supabase.from_("tasks").update(data).eq("task_id", task_id).execute()
     return await safe_supabase_operation(op, "Failed to update task")
+
+# New helper functions for managing subtasks ------------------------------
+
+async def add_subtask(task_id: str, subtask_id: str):
+    """Append a subtask_id to the parent task's sub_tasks array, ensuring no duplicates."""
+    # Fetch the current task
+    task_res = await get_task(task_id)
+    if not task_res or not task_res.data:
+        raise HTTPException(status_code=404, detail="Parent task not found")
+
+    existing_sub_tasks = task_res.data.get("sub_tasks") or []
+
+    # Avoid duplicates
+    if subtask_id in existing_sub_tasks:
+        return task_res  # Nothing to change, return as-is
+
+    updated_subtasks = existing_sub_tasks + [subtask_id]
+
+    # Persist update
+    return await update_task(task_id, {"sub_tasks": updated_subtasks})
+
+async def remove_subtask(task_id: str, subtask_id: str):
+    """Remove a subtask_id from the parent task's sub_tasks array."""
+    task_res = await get_task(task_id)
+    if not task_res or not task_res.data:
+        raise HTTPException(status_code=404, detail="Parent task not found")
+
+    existing_sub_tasks = task_res.data.get("sub_tasks") or []
+
+    if subtask_id not in existing_sub_tasks:
+        return task_res  # Nothing to remove
+
+    updated_subtasks = [sid for sid in existing_sub_tasks if sid != subtask_id]
+
+    return await update_task(task_id, {"sub_tasks": updated_subtasks})
 
 async def delete_task(task_id: str):
     supabase = get_supabase_client()
@@ -88,24 +139,28 @@ async def delete_task(task_id: str):
         return supabase.from_("tasks").delete().eq("task_id", task_id).execute()
     return await safe_supabase_operation(op, "Failed to delete task")
 
-async def get_all_tasks(search=None, limit=20, offset=0, sort_by="title", sort_order="asc", status=None):
+async def get_all_tasks(search=None, limit=20, offset=0, sort_by="title", sort_order="asc", status=None, org_id=None):
     supabase = get_supabase_client()
     query = supabase.from_("task_card_view").select("*")
     if search:
         query = query.ilike("title", f"%{search}%")
     if status:
         query = query.eq("status", status)
+    if org_id:
+        query = query.eq("org_id", org_id)
     query = query.order(sort_by, desc=(sort_order == "desc"))
     result = query.range(offset, offset + limit - 1).execute()
     return result.data
 
-async def get_tasks_for_project(project_id, search=None, limit=20, offset=0, sort_by="title", sort_order="asc", status=None):
+async def get_tasks_for_project(project_id, search=None, limit=20, offset=0, sort_by="title", sort_order="asc", status=None, org_id=None):
     supabase = get_supabase_client()
     query = supabase.from_("task_card_view").select("*").eq("project_id", project_id)
     if search:
         query = query.ilike("title", f"%{search}%")
     if status:
         query = query.eq("status", status)
+    if org_id:
+        query = query.eq("org_id", org_id)
     query = query.order(sort_by, desc=(sort_order == "desc"))
     result = query.range(offset, offset + limit - 1).execute()
     return result.data

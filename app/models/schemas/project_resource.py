@@ -17,8 +17,16 @@ class ProjectResourceBase(BaseModel):
 class ProjectResourceCreate(ProjectResourceBase):
     pass
 
-class ProjectResourceUpdate(ProjectResourceBase):
-    pass
+class ProjectResourceUpdate(BaseModel):
+    project_id: Optional[str] = None
+    project_name: Optional[str] = None
+    resource_name: Optional[str] = None
+    resource_url: Optional[str] = None
+    resource_type: Optional[str] = None
+    is_active: Optional[bool] = True
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
+    delete_reason: Optional[str] = None
 
 class ProjectResourceInDB(ProjectResourceBase):
     resource_id: str = Field(..., description="Resource ID", example="RE0001")

@@ -17,6 +17,8 @@ class ProjectStatusEnum(str, Enum):
     COMPLETED = "completed"
     ARCHIVED = "archived"
     ON_HOLD = "on_hold"
+    BLOCKED = "blocked"
+    PAUSED = "paused"
 
 
 class TaskStatusEnum(str, Enum):
