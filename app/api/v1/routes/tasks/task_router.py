@@ -15,14 +15,14 @@ router = APIRouter()
 #     # You may want to refactor to fetch project_id from the DB using task_id
 #     return await get_project_role(user["id"], task_id)
 
-@router.post("/", response_model=TaskInDB)
+@router.post("", response_model=TaskInDB)
 async def create_task_route(task: TaskCreate, user=Depends(verify_token)):
     # if role not in ["owner", "admin"]:
     #     raise HTTPException(status_code=403, detail="Not authorized")
     result = await create_task({**task.dict(), "created_by": user["username"]})
     return result.data[0]
 
-@router.get("/", response_model=List[TaskCardView])
+@router.get("", response_model=List[TaskCardView])
 async def list_all_tasks(
     user=Depends(verify_token),
     org_id: Optional[str] = Query(None),

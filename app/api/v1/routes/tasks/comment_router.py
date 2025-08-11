@@ -13,7 +13,7 @@ async def project_rbac(project_id: str, user=Depends(verify_token)):
         raise HTTPException(status_code=403, detail="Not a member of this project")
     return role
 
-@router.post("/", response_model=TaskCommentInDB)
+@router.post("", response_model=TaskCommentInDB)
 async def create_comment(comment: TaskCommentCreate, project_id: str, user=Depends(verify_token), role=Depends(project_rbac)):
     # Allow any project member to comment
     payload = {**comment.dict()}
@@ -26,7 +26,7 @@ async def create_comment(comment: TaskCommentCreate, project_id: str, user=Depen
     result = await create_task_comment(payload)
     return result.data[0]
 
-@router.get("/", response_model=List[TaskCommentInDB])
+@router.get("", response_model=List[TaskCommentInDB])
 async def list_task_comments(
     task_id: str = Query(...),
     search: Optional[str] = Query(None),

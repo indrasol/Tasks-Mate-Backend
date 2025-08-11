@@ -13,14 +13,14 @@ async def project_rbac(project_id: str, user=Depends(verify_token)):
         raise HTTPException(status_code=403, detail="Not a member of this project")
     return role
 
-@router.post("/", response_model=ProjectResourceInDB)
+@router.post("", response_model=ProjectResourceInDB)
 async def create_resource(resource: ProjectResourceCreate, project_id: str, user=Depends(verify_token), role=Depends(project_rbac)):
     if role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     result = await create_project_resource({**resource.dict(), "created_by": user["username"]})
     return result.data[0]
 
-@router.get("/", response_model=List[ProjectResourceInDB])
+@router.get("", response_model=List[ProjectResourceInDB])
 async def list_project_resources(
     project_id: str = Query(...),
     search: Optional[str] = Query(None),

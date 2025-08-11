@@ -15,7 +15,7 @@ router = APIRouter()
 #         raise HTTPException(status_code=403, detail="Not a member of this project")
 #     return role
 
-@router.post("/", response_model=ProjectMemberInDB)
+@router.post("", response_model=ProjectMemberInDB)
 async def create_member(member: ProjectMemberCreate, user=Depends(verify_token), role=Depends(project_rbac)):
     if role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Not authorized")
@@ -25,7 +25,7 @@ async def create_member(member: ProjectMemberCreate, user=Depends(verify_token),
     result = await create_project_member(data)
     return result.data[0]
 
-@router.get("/", response_model=List[ProjectMemberInDB])
+@router.get("", response_model=List[ProjectMemberInDB])
 async def list_project_members(
     project_id: Optional[str] = Query(None),
     search: Optional[str] = Query(None),

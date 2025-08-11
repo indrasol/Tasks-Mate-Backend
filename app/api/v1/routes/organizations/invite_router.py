@@ -52,7 +52,7 @@ router = APIRouter()
 
 
 
-@router.post("/", response_model=OrganizationInviteInDB)
+@router.post("", response_model=OrganizationInviteInDB)
 async def create_invite(invite: OrganizationInviteCreate, user=Depends(verify_token), role=Depends(org_rbac)):
     if role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Not authorized")
