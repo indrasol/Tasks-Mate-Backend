@@ -21,6 +21,7 @@ async def project_rbac(project_id: str, user=Depends(verify_token)):
         raise HTTPException(status_code=403, detail="Not a member of this project")
     return role
 
+
 @router.post("/", response_model=TaskAttachmentInDB, status_code=status.HTTP_201_CREATED)
 async def create_attachment(
     attachment: TaskAttachmentCreate, 
@@ -62,6 +63,14 @@ async def create_attachment(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create attachment"
         )
+
+@router.post("", response_model=TaskAttachmentInDB)
+async def create_attachment(attachment: TaskAttachmentCreate, project_id: str, user=Depends(verify_token), role=Depends(project_rbac)):
+    if role not in ["owner", "admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    result = await create_task_attachment({**attachment.dict(), "created_by": user["id"]})
+    return result.data[0]
+
 
 @router.get("/{attachment_id}", response_model=TaskAttachmentInDB)
 async def read_attachment(

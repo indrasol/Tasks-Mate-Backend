@@ -19,7 +19,7 @@ router = APIRouter()
 #         raise HTTPException(status_code=403, detail="Not a member of this organization")
 #     return role
 
-@router.post("/", response_model=OrgCard)
+@router.post("", response_model=OrgCard)
 async def create_org(org: OrganizationCreate, user=Depends(verify_token)):
     # Only global admin/editor can create orgs
     # if user.get("role") not in ["admin", "editor"]:
@@ -74,7 +74,7 @@ async def create_org(org: OrganizationCreate, user=Depends(verify_token)):
         # Re-raise other ValueError exceptions
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/", response_model=List[OrgCard])
+@router.get("", response_model=List[OrgCard])
 async def list_user_organizations(user=Depends(verify_token)):
     """
     List all organizations the user is a member of or invited to.

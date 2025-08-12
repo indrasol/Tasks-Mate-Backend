@@ -18,6 +18,7 @@ async def project_rbac(project_id: str, user=Depends(verify_token)):
         raise HTTPException(status_code=403, detail="Not a member of this project")
     return role
 
+
 @router.post("/", response_model=TaskCommentInDB, status_code=status.HTTP_201_CREATED)
 async def create_comment(comment: TaskCommentCreate, project_id: str, user=Depends(verify_token), role=Depends(project_rbac)):
     """Create a new top-level comment on a task."""
@@ -82,7 +83,7 @@ async def reply_to_comment(reply: ReplyCreate, project_id: str, user=Depends(ver
             detail=str(e)
         )
 
-@router.get("/", response_model=List[TaskCommentInDB])
+@router.get("", response_model=List[TaskCommentInDB])
 async def list_task_comments(
     task_id: str = Query(..., description="ID of the task to get comments for"),
     search: Optional[str] = Query(None, description="Search term to filter comments"),

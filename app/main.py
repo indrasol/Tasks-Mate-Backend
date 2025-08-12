@@ -85,7 +85,8 @@ app = FastAPI(
     description="Designed to manage projects, tasks and bugs efficiently.",
     version="1.0.0",
     lifespan=lifespan,
-    debug=True
+    debug=True,
+    redirect_slashes=False
 )
 
 # # ---------------- Rate Limiting ----------------

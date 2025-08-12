@@ -16,7 +16,7 @@ router = APIRouter()
 
 
 
-@router.post("/", response_model=ProjectCard)
+@router.post("", response_model=ProjectCard)
 async def create_project_route(project: ProjectCreate, user=Depends(verify_token), org_role=Depends(org_rbac)):
     """Create a project and immediately return a fully-hydrated `ProjectCard` instance."""
     # Only organization owner/admin can create projects
