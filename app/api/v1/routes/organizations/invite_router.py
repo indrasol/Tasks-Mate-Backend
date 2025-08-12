@@ -8,6 +8,8 @@ from app.services.auth_handler import verify_token
 from app.services.organization_member_service import create_organization_member
 from app.services.rbac import get_org_role
 from app.services.utils import inject_audit_fields
+from app.api.v1.routes.emails.email_routes import send_org_invite_email
+from fastapi import BackgroundTasks
 
 router = APIRouter()
 
@@ -53,14 +55,19 @@ router = APIRouter()
 
 
 @router.post("", response_model=OrganizationInviteInDB)
-async def create_invite(invite: OrganizationInviteCreate, user=Depends(verify_token), role=Depends(org_rbac)):
+async def create_invite(invite: OrganizationInviteCreate, background_tasks: BackgroundTasks, user=Depends(verify_token), role=Depends(org_rbac)):
     if role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
     data = inject_audit_fields(invite.dict(), user["username"], action="invite_org")
 
     result = await create_organization_invite(data)
-    return result.data[0]
+    invite_data = result.data[0]
+
+    # Send invite email in background
+    background_tasks.add_task(send_org_invite_email, invite_data)
+
+    return invite_data
 
 @router.get("/org/{org_id}", response_model=List[OrganizationInviteInDB])
 async def list_org_invites(
