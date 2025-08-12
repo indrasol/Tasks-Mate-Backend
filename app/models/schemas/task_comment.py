@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
 
@@ -10,6 +10,7 @@ class TaskCommentBase(BaseModel):
     # DB may contain both `comment` and `content`. Accept either; at least one required at route level.
     comment: Optional[str] = Field(None, description="Legacy/alternative comment field")
     content: Optional[str] = Field(None, description="Comment content", example="Looks good, but needs more tests.")
+    parent_comment_id: Optional[str] = Field(None, description="ID of the parent comment if this is a reply")
     created_at: Optional[datetime] = Field(None, description="When the comment was created")
     updated_at: Optional[datetime] = Field(None, description="When the comment was last updated")
 
@@ -27,5 +28,10 @@ class TaskCommentUpdate(BaseModel):
 
 class TaskCommentInDB(TaskCommentBase):
     comment_id: str
+    replies: List['TaskCommentInDB'] = Field(default_factory=list, description="List of reply comments")
+    
     class Config:
         orm_mode = True
+        json_encoders = {
+            datetime: lambda v: v.isoformat() if v else None
+        }

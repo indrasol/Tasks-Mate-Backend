@@ -19,7 +19,7 @@ router = APIRouter()
 async def create_task_route(task: TaskCreate, user=Depends(verify_token)):
     # if role not in ["owner", "admin"]:
     #     raise HTTPException(status_code=403, detail="Not authorized")
-    result = await create_task({**task.dict(), "created_by": user["username"]})
+    result = await create_task({**task.dict(), "created_by": user["username"]}, user["username"])
     return result.data[0]
 
 @router.get("", response_model=List[TaskCardView])
@@ -52,7 +52,7 @@ async def read_task(task_id: str, user=Depends(verify_token)):
 async def update_task_route(task_id: str, task: TaskUpdate, user=Depends(verify_token)):
     # if role not in ["owner", "admin"]:
     #     raise HTTPException(status_code=403, detail="Not authorized")
-    result = await update_task(task_id, {**task.dict(exclude_unset=True), "updated_by": user["id"]})
+    result = await update_task(task_id, {**task.dict(exclude_unset=True), "updated_by": user["username"]}, user["username"])
     return result.data[0]
 
 @router.delete("/{task_id}")
@@ -86,7 +86,7 @@ async def delete_task_route(task_id: str, user=Depends(verify_token)):
     if not allowed:
         raise HTTPException(status_code=403, detail="Not authorized to delete this task")
 
-    await delete_task(task_id)
+    await delete_task(task_id, user["username"])
     return {"ok": True}
 
 # ---------------------- Subtask Management ----------------------
@@ -94,12 +94,12 @@ async def delete_task_route(task_id: str, user=Depends(verify_token)):
 @router.post("/{task_id}/subtasks", response_model=TaskInDB)
 async def add_subtask_to_task(task_id: str, subtask_id: str = Body(..., embed=True), user=Depends(verify_token)):
     """Append a subtask to an existing task."""
-    result = await add_subtask(task_id, subtask_id)
+    result = await add_subtask(task_id, subtask_id, user["username"])
     return result.data[0] if hasattr(result, "data") and isinstance(result.data, list) else result.data
 
 
 @router.delete("/{task_id}/subtasks/{subtask_id}", response_model=TaskInDB)
 async def remove_subtask_from_task(task_id: str, subtask_id: str, user=Depends(verify_token)):
     """Remove a subtask from an existing task."""
-    result = await remove_subtask(task_id, subtask_id)
+    result = await remove_subtask(task_id, subtask_id, user["username"])
     return result.data[0] if hasattr(result, "data") and isinstance(result.data, list) else result.data

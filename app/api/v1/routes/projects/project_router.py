@@ -10,7 +10,7 @@ from app.services.rbac import get_project_role
 from app.services.project_member_service import create_project_member
 from app.services.role_service import create_role, get_role_by_name
 from app.services.utils import inject_audit_fields
-from app.services.user_service import get_user_details_by_username
+from app.services.user_service import get_user_details_by_id
 
 router = APIRouter()
 
@@ -49,12 +49,14 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
 
     already_added: set[str] = set()
 
+    user_details = await get_user_details_by_id(owner_name)
+
     # Insert owner membership
     await create_project_member({
-        "user_id": user["id"],
+        "user_id": user_details["id"],
         "project_id": project_id,
         "role": owner_role,
-        "username": user["username"],
+        "username": user_details["username"],
         "is_active": True,
         "created_by": user["username"],
     })
@@ -62,13 +64,13 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
 
     # If creator differs, add them as ADMIN (or OWNER if admin role absent)
     if owner_name != user["id"]:
-        # user_details = await get_user_details_by_username(owner_name)
+        # user_details = await get_user_details_by_id(owner_name)
         await create_project_member({
             # "user_id": user_details["id"],
-            "user_id": owner_name,
+            "user_id": user["id"],
             "project_id": project_id,
-            "role": owner_role,
-            "username": owner_name,
+            "role": RoleEnum.MEMBER.value,
+            "username": user["username"],
             "is_active": True,
             "created_by":  user["username"],
         })
@@ -76,20 +78,21 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
 
     # Add selected additional members (if any) as MEMBER
     if project.team_members:
-        member_role_id = None
-        member_role_res = await get_role_by_name(RoleEnum.MEMBER.value)
-        if member_role_res.data:
-            member_role_id = member_role_res.data[0]["role_id"]
+        # member_role_id = None
+        # member_role_res = await get_role_by_name(RoleEnum.MEMBER.value)
+        # if member_role_res.data:
+        #     member_role_id = member_role_res.data[0]["role_id"]
         for member in project.team_members:
             if member in already_added:
                 continue
             # user_details = await get_user_details_by_username(member)
+            user_details = await get_user_details_by_id(owner_name)
             await create_project_member({
                 # "user_id": user_details["id"],
-                "user_id": member,
+                "user_id":  user_details["id"],
                 "project_id": project_id,
                 "role": RoleEnum.MEMBER.value,
-                "username": member,
+                "username":  user_details["username"],
                 "is_active": True,
                 "created_by":  user["username"],
             })
