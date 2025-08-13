@@ -18,6 +18,7 @@ class TaskHistoryUpdate(TaskHistoryBase):
 
 class TaskHistoryInDB(TaskHistoryBase):
     history_id: str
+    action: str = Field(..., description="Action performed on the task", example="created")
     created_by: str = Field(..., description="User ID of the creator", example="user-1234")
     created_at: datetime = Field(default_factory=datetime.utcnow, description="When the history was created", example="2023-10-01T12:00:00Z")
     class Config:

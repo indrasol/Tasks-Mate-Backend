@@ -1,5 +1,5 @@
 from supabase import create_client, Client
-from app.config.settings import SUPABASE_PROJECT_URL, SUPABASE_API_KEY
+from app.config.settings import SUPABASE_PROJECT_URL, SUPABASE_API_KEY, SUPABASE_SERVICE_KEY
 from fastapi import HTTPException
 from app.utils.logger import log_info, log_error, log_debugger
 from functools import lru_cache
@@ -14,10 +14,14 @@ thread_pool = ThreadPoolExecutor()
 # Initialize Supabase client
 @lru_cache
 def get_supabase_client():
-    # http_client = httpx.Client()
+    # Prefer service role key on the server for privileged operations (e.g., storage uploads)
+    # Fallback to public anon key if service key is not configured
+    key_to_use = SUPABASE_SERVICE_KEY or SUPABASE_API_KEY
     log_debugger(f"SUPABASE_PROJECT_URL: {SUPABASE_PROJECT_URL}")
-    log_debugger(f"SUPABASE_API_KEY: {SUPABASE_API_KEY}")
-    supbase: Client = create_client(SUPABASE_PROJECT_URL, SUPABASE_API_KEY)
+    # Avoid logging the actual secret value
+    which_key = "service" if SUPABASE_SERVICE_KEY else "anon"
+    log_debugger(f"Using Supabase key type: {which_key}")
+    supbase: Client = create_client(SUPABASE_PROJECT_URL, key_to_use)
     return supbase
 
 # Helper to run Supabase operations asynchronously

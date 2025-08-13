@@ -3,52 +3,68 @@ import json
 from typing import Dict, Any, List, Tuple, Optional
 from app.core.db.supabase_db import get_supabase_client, safe_supabase_operation
 from fastapi import HTTPException
-from app.services.task_history_service import create_task_history
+from app.services.task_history_service import create_task_history, record_history
 import random
 
-async def _generate_random_task_id() -> str:
-    """Generate a random 5-digit task ID 'T{5 digits}' and ensure uniqueness."""
-    supabase = get_supabase_client()
-    # Avoid infinite loops; try a reasonable number of times
-    for _ in range(20):
-        candidate = f"T{random.randint(0, 99999):05d}"
-        exists = supabase.from_("tasks").select("task_id").eq("task_id", candidate).execute()
-        if not exists.data:
-            return candidate
-    # Fallback to time-based if collisions persist
-    ts_suffix = int(datetime.datetime.utcnow().timestamp()) % 100000
-    return f"T{ts_suffix:05d}"
-
 async def _generate_sequential_task_id() -> str:
-    """Generate the next sequential task ID in the format 'T000000001'."""
+    """Generate a random task ID with prefix 'T' and 6 digits, ensuring uniqueness."""
     supabase = get_supabase_client()
-    
-    def op():
-        
-        return (
-            supabase
-            .from_("tasks")
-            .select("task_id")
-            .order("task_id", desc=True)
-            .limit(1)
-            .execute()
-        )
+    digits = 6
+    for _ in range(10):
+        candidate = f"T{random.randint(0, 10**digits - 1):0{digits}d}"
+        def op():
+            return supabase.from_("tasks").select("task_id").eq("task_id", candidate).limit(1).execute()
+        res = await safe_supabase_operation(op, "Failed to verify task id uniqueness")
+        if not res or not getattr(res, "data", None):
+            return candidate
+    # Fallback: time-based suffix to reduce collision risk
+    ts = int(datetime.datetime.utcnow().timestamp()) % (10**digits)
+    return f"T{ts:0{digits}d}"
 
-    res = await safe_supabase_operation(op, "Failed to fetch last project id")
-    last_id: str | None = None
-    if res and res.data:
-        last_id = res.data[0]["task_id"]
+# ────────────────────────────────────────────────────────────
+# Diff helpers (whitelist)
+# ────────────────────────────────────────────────────────────
 
-    last_num = 0
-    if last_id and isinstance(last_id, str) and last_id.startswith("T"):
-        try:
-            last_num = int(last_id[1:])
-        except ValueError:
-            last_num = 0
+UPDATE_WHITELIST = [
+    "title",
+    "description",
+    "status",
+    "priority",
+    "start_date",
+    "due_date",
+    "completed_at",
+    "tags",
+    "project_id",
+    # NOTE: sub_tasks / dependencies are handled by dedicated endpoints
+]
 
-    next_num = last_num + 1
-    # Pad with at least 5 digits (P00001, P00010, etc.)
-    return f"T{next_num:06d}"
+def _norm(v: Any):
+    if v is None:
+        return None
+    if isinstance(v, datetime.datetime):
+        # Persist stable date format for diffs
+        return v.replace(microsecond=0).isoformat()
+    if isinstance(v, datetime.date):
+        return v.isoformat()
+    return v
+
+def _compute_task_diff(before: Dict[str, Any], after: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    Returns a list of {field, old, new} only for whitelisted fields that changed.
+    Keeps arrays/objects as-is (no stringifying).
+    """
+    changes: List[Dict[str, Any]] = []
+    for field in UPDATE_WHITELIST:
+        old = _norm(before.get(field))
+        new = _norm(after.get(field))
+        # Normalize arrays (e.g., tags) to avoid order noise
+        if isinstance(old, list):
+            old = sorted(old)
+        if isinstance(new, list):
+            new = sorted(new)
+        if old != new:
+            changes.append({"field": field, "old": old, "new": new})
+    return changes
 
 async def _create_task_history_entry(task_id: str, user_id: str, changes: Dict[str, Tuple[Any, Any]], action: str = "updated") -> None:
     """Helper to create a history entry for a task change."""
@@ -91,7 +107,8 @@ async def _get_changes(old_data: Dict[str, Any], new_data: Dict[str, Any]) -> Di
             
     return changes
 
-async def create_task(data: dict, user_id: Optional[str] = None) -> Dict[str, Any]:
+
+async def create_task(data: dict, user_name: Optional[str] = None, actor_display: Optional[str] = None) -> Dict[str, Any]:
     """Create a new task with history tracking."""
     task_id = await _generate_sequential_task_id()
     data["task_id"] = task_id
@@ -115,19 +132,18 @@ async def create_task(data: dict, user_id: Optional[str] = None) -> Dict[str, An
         return supabase.from_("tasks").insert(data).execute()
     
     result = await safe_supabase_operation(op, "Failed to create task")
+    print(f"Task created: {data.get('title')}")
     
     # Create initial history entry
-    if user_id:
-        history_data = {
-            "task_id": task_id,
-            "created_by": user_id,
-            "title": "created",
-            "metadata": [{"field": k, "new": _serialize_value(v)} for k, v in data.items() 
-                         if k not in ['created_at', 'updated_at', 'history']],
-            "created_at": created_at
-        }
-        await create_task_history(history_data)
-    
+    if result.data:
+        await record_history(
+            task_id=task_id,
+            action="created",
+            created_by=data.get("created_by"),
+            title=data.get("title"),
+            metadata=[],  # keep 'created' clean; the snapshot can be large—prefer UI shows created event only
+            actor_display=actor_display,
+        )
     return result
 
 async def get_task(task_id: str):
@@ -136,153 +152,148 @@ async def get_task(task_id: str):
         return supabase.from_("tasks").select("*").eq("task_id", task_id).single().execute()
     return await safe_supabase_operation(op, "Failed to fetch task")
 
-async def update_task(task_id: str, data: dict, user_id: Optional[str] = None) -> Dict[str, Any]:
-    """Update a task with history tracking."""
-    # Get current task state
-    current_task = await get_task(task_id)
-    if not current_task or not current_task.data:
+async def update_task(
+    task_id: str,
+    data: dict,
+    user_id: Optional[str] = None,
+    suppress_history: bool = False,
+    actor_display: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Update a task; compute a whitelisted diff; write ONE 'updated' history event with the diff.
+    """
+    # 1) Fetch current
+    current_res = await get_task(task_id)
+    if not current_res or not current_res.data:
         raise HTTPException(status_code=404, detail="Task not found")
+    before: Dict[str, Any] = current_res.data
+
+    # 2) Normalize incoming payload
+    payload: Dict[str, Any] = {}
+    for k in UPDATE_WHITELIST + ["assignee", "sub_tasks", "dependencies"]:
+        if k in data:
+            payload[k] = data[k]
+
+    # Convert Enum values (from pydantic TaskUpdate) to their raw values for DB/logic
+    if "status" in payload and hasattr(payload["status"], "value"):
+        payload["status"] = str(payload["status"].value)
+    if "priority" in payload and hasattr(payload["priority"], "value"):
+        payload["priority"] = str(payload["priority"].value)
+
+    if "assignee" in payload and payload["assignee"] is not None:
+        payload["assignee"] = str(payload["assignee"])
+
+    for df in ["start_date", "due_date", "completed_at"]:
+        if isinstance(payload.get(df), (datetime.datetime, datetime.date)):
+            payload[df] = _norm(payload[df])
     
-    current_data = current_task.data
-    
-    # Normalize the data
-    if data.get("assignee"):
-        data["assignee"] = str(data["assignee"])
-    
-    # Normalize date fields
-    for date_field in ["start_date", "due_date", "completed_at"]:
-        if data.get(date_field) and hasattr(data[date_field], "isoformat"):
-            data[date_field] = data[date_field].isoformat()
-    
-    # Calculate changes
-    changes = await _get_changes(current_data, data)
-    
-    # Update the task
+    # Guard: block status -> completed if any dependency (after this update) is not completed
+    status_raw = payload.get("status")
+    if status_raw is None:
+        status_raw = before.get("status")
+        if hasattr(status_raw, "value"):
+            status_raw = status_raw.value
+    print("status_raw", status_raw)
+    try_set_completed = (str(status_raw or "").lower() == "completed")
+    print("try_set_completed", try_set_completed)
+    if try_set_completed:
+        # dependencies after this update (if provided), otherwise current ones (normalize when DB returns JSON as string)
+        deps_after: List[str] | None = payload.get("dependencies")
+        if deps_after is None:
+            raw = before.get("dependencies") or []
+            if isinstance(raw, str):
+                try:
+                    parsed = json.loads(raw)
+                    deps_after = parsed if isinstance(parsed, list) else []
+                except Exception:
+                    deps_after = []
+            elif isinstance(raw, list):
+                deps_after = raw
+            else:
+                deps_after = []
+        # ensure list of strings
+        if not isinstance(deps_after, list):
+            deps_after = []
+        else:
+            deps_after = [str(x) for x in deps_after if x is not None]
+        # Only check when there *are* dependencies
+        if deps_after:
+            # Trim and uniq dependency ids
+            deps_after = sorted({str(x).strip() for x in deps_after if x})
+            sb = get_supabase_client()
+            def dep_op():
+                return (
+                    sb.from_("tasks")
+                    .select("task_id,status")
+                    .in_("task_id", deps_after)
+                    .execute()
+                )
+            dep_res = await safe_supabase_operation(dep_op, "Failed to validate dependencies")
+            rows = dep_res.data or []
+            found_ids = {str(r.get("task_id")).strip() for r in rows}
+            # Any missing ids are treated as incomplete safeguards
+            missing = [d for d in deps_after if d not in found_ids]
+            # Consider ONLY exact 'completed' as satisfied among found
+            not_completed = [str(r.get("task_id")) for r in rows if str(r.get("status") or "").lower() != "completed"]
+            incomplete = missing + not_completed
+            if incomplete:
+                # Show up to first 5 ids for a friendly error
+                preview = ", ".join(incomplete[:5])
+                more = f" (+{len(incomplete)-5} more)" if len(incomplete) > 5 else ""
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Cannot mark task as completed while {len(incomplete)} in complete dependency(ies): {preview}{more}"
+                )
+
+
+    # 3) Compute diff against *final* state that would be saved
+    after = {**before, **payload}
+    changes = _compute_task_diff(before, after)
+
+    # 4) Persist update (even if no changes; supabase will no-op)
     supabase = get_supabase_client()
+
     def op():
-        return supabase.from_("tasks").update(data).eq("task_id", task_id).execute()
-    
+        return supabase.from_("tasks").update(payload).eq("task_id", task_id).execute()
+
     result = await safe_supabase_operation(op, "Failed to update task")
-    
-    # Create history entry if there were changes and we have a user
-    if changes and user_id:
-        await _create_task_history_entry(task_id, user_id, changes)
-    
+
+    # 5) Record history (one compact event)
+    if changes and user_id and not suppress_history:
+        await record_history(
+            task_id=task_id,
+            action="updated",
+            created_by=user_id,
+            title=after.get("title") or before.get("title"),
+            metadata=changes,  # jsonb[] of {field,old,new}
+            actor_display=actor_display,
+        )
+
     return result
 
-async def add_subtask(task_id: str, subtask_id: str, user_id: Optional[str] = None) -> Dict[str, Any]:
-    """
-    Append a subtask_id to the parent task's sub_tasks array with history tracking.
-    
-    Args:
-        task_id: The parent task ID
-        subtask_id: The subtask ID to add
-        user_id: ID of the user making the change (for history)
-        
-    Returns:
-        The updated task data
-    """
-    # Fetch the current task
-    task_res = await get_task(task_id)
-    if not task_res or not task_res.data:
-        raise HTTPException(status_code=404, detail="Parent task not found")
 
-    current_task = task_res.data
-    existing_sub_tasks = current_task.get("sub_tasks") or []
-
-    # Avoid duplicates
-    if subtask_id in existing_sub_tasks:
-        return task_res  # Nothing to change, return as-is
-
-    updated_subtasks = existing_sub_tasks + [subtask_id]
-    
-    # Create history entry for the parent task
-    if user_id:
-        history_data = {
-            "task_id": task_id,
-            "created_by": user_id,
-            "title": "subtask_added",
-            "metadata": [{
-                "field": "sub_tasks",
-                "old": existing_sub_tasks,
-                "new": updated_subtasks,
-                "subtask_id": subtask_id
-            }],
-            "created_at": datetime.datetime.utcnow().isoformat()
-        }
-        await create_task_history(history_data)
-
-    # Persist update
-    return await update_task(task_id, {"sub_tasks": updated_subtasks}, user_id)
-
-async def remove_subtask(task_id: str, subtask_id: str, user_id: Optional[str] = None) -> Dict[str, Any]:
-    """
-    Remove a subtask_id from the parent task's sub_tasks array with history tracking.
-    
-    Args:
-        task_id: The parent task ID
-        subtask_id: The subtask ID to remove
-        user_id: ID of the user making the change (for history)
-        
-    Returns:
-        The updated task data
-    """
-    task_res = await get_task(task_id)
-    if not task_res or not task_res.data:
-        raise HTTPException(status_code=404, detail="Parent task not found")
-
-    current_task = task_res.data
-    existing_sub_tasks = current_task.get("sub_tasks") or []
-
-    if subtask_id not in existing_sub_tasks:
-        return task_res  # Nothing to remove
-
-    updated_subtasks = [sid for sid in existing_sub_tasks if sid != subtask_id]
-    
-    # Create history entry for the parent task
-    if user_id:
-        history_data = {
-            "task_id": task_id,
-            "created_by": user_id,
-            "title": "subtask_removed",
-            "metadata": [{
-                "field": "sub_tasks",
-                "old": existing_sub_tasks,
-                "new": updated_subtasks,
-                "subtask_id": subtask_id
-            }],
-            "created_at": datetime.datetime.utcnow().isoformat()
-        }
-        await create_task_history(history_data)
-
-    return await update_task(task_id, {"sub_tasks": updated_subtasks}, user_id)
-
-async def delete_task(task_id: str, user_id: Optional[str] = None) -> Dict[str, Any]:
-    """Delete a task with history tracking."""
-    # Get current task state for history
+async def delete_task(task_id: str, user_id: Optional[str] = None, actor_display: Optional[str] = None) -> Dict[str, Any]:
+    """Delete a task and log 'deleted' before removal (so audit survives hard delete)."""
     current_task = await get_task(task_id)
     if not current_task or not current_task.data:
         raise HTTPException(status_code=404, detail="Task not found")
-    
-    current_data = current_task.data
-    
-    # Create history entry before deletion
+    before = current_task.data
+
     if user_id:
-        history_data = {
-            "task_id": task_id,
-            "created_by": user_id,
-            "title": "deleted",
-            "metadata": [{"field": k, "old": _serialize_value(v)} for k, v in current_data.items() 
-                         if k not in ['created_at', 'updated_at', 'history']],
-            "created_at": datetime.datetime.utcnow().isoformat()
-        }
-        await create_task_history(history_data)
-    
-    # Delete the task
+        await record_history(
+            task_id=task_id,
+            action="deleted",
+            created_by=user_id,
+            title=before.get("title"),
+            metadata=[],  # keep small; you can include a few key fields if desired
+            actor_display=actor_display,
+        )
+
     supabase = get_supabase_client()
+
     def op():
         return supabase.from_("tasks").delete().eq("task_id", task_id).execute()
-    
+
     return await safe_supabase_operation(op, "Failed to delete task")
 
 async def get_all_tasks(
@@ -292,54 +303,21 @@ async def get_all_tasks(
     sort_by: str = "title",
     sort_order: str = "asc",
     status: Optional[str] = None,
-    org_id: Optional[str] = None
+    org_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    """
-    Get all tasks with optional filtering, sorting, and history inclusion.
-    
-    Args:
-        search: Text to search in task titles
-        limit: Maximum number of tasks to return
-        offset: Number of tasks to skip
-        sort_by: Field to sort by
-        sort_order: Sort order ('asc' or 'desc')
-        status: Filter by task status
-        org_id: Filter by organization ID
-        include_history: Whether to include task history
-        
-    Returns:
-        List of task dictionaries
-    """
     supabase = get_supabase_client()
-    
-    # Base query
     query = supabase.from_("task_card_view").select("*")
-    
-    # Apply filters
+
     if search:
         query = query.ilike("title", f"%{search}%")
     if status:
         query = query.eq("status", status)
     if org_id:
         query = query.eq("org_id", org_id)
-    
-    # Apply sorting
+
     query = query.order(sort_by, desc=(sort_order.lower() == "desc"))
-    
-    # Apply pagination
     result = query.range(offset, offset + limit - 1).execute()
-    tasks = result.data or []
-    
-    # Include history if requested
-    # if include_history and tasks:
-    #     task_ids = [task['task_id'] for task in tasks]
-    #     history = await get_tasks_history(task_ids)
-    #     history_map = {h['task_id']: h for h in history}
-        
-    #     for task in tasks:
-    #         task['history'] = history_map.get(task['task_id'], [])
-    
-    return tasks
+    return result.data or []
 
 async def get_tasks_for_project(
     project_id: str,
@@ -349,52 +327,139 @@ async def get_tasks_for_project(
     sort_by: str = "title",
     sort_order: str = "asc",
     status: Optional[str] = None,
-    org_id: Optional[str] = None
+    org_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    """
-    Get tasks for a specific project with optional filtering, sorting, and history.
-    
-    Args:
-        project_id: ID of the project to get tasks for
-        search: Text to search in task titles
-        limit: Maximum number of tasks to return
-        offset: Number of tasks to skip
-        sort_by: Field to sort by
-        sort_order: Sort order ('asc' or 'desc')
-        status: Filter by task status
-        org_id: Filter by organization ID
-        include_history: Whether to include task history
-        
-    Returns:
-        List of task dictionaries for the project
-    """
     supabase = get_supabase_client()
-    
-    # Base query with project filter
     query = supabase.from_("task_card_view").select("*").eq("project_id", project_id)
-    
-    # Apply additional filters
+
     if search:
         query = query.ilike("title", f"%{search}%")
     if status:
         query = query.eq("status", status)
     if org_id:
         query = query.eq("org_id", org_id)
-    
-    # Apply sorting
+
     query = query.order(sort_by, desc=(sort_order.lower() == "desc"))
-    
-    # Apply pagination
     result = query.range(offset, offset + limit - 1).execute()
-    tasks = result.data or []
-    
-    # Include history if requested
-    # if include_history and tasks:
-    #     task_ids = [task['task_id'] for task in tasks]
-    #     history = await get_tasks_history(task_ids)
-    #     history_map = {h['task_id']: h for h in history}
-        
-    #     for task in tasks:
-    #         task['history'] = history_map.get(task['task_id'], [])
-    
-    return tasks
+    return result.data or []
+
+async def add_subtask(task_id: str, subtask_id: str, user_id: Optional[str] = None, actor_display: Optional[str] = None) -> Dict[str, Any]:
+    task_res = await get_task(task_id)
+    if not task_res or not task_res.data:
+        raise HTTPException(status_code=404, detail="Parent task not found")
+
+    before = task_res.data
+    existing = before.get("sub_tasks") or []
+    if subtask_id in existing:
+        return task_res  # no-op
+
+    updated = existing + [subtask_id]
+
+    # Log explicit event
+    if user_id:
+        await record_history(
+            task_id=task_id,
+            action="subtask_added",
+            created_by=user_id,
+            title=before.get("title"),
+            metadata={"subtask_id": subtask_id},
+            actor_display=actor_display,
+        )
+
+    # Persist, suppress generic 'updated' history
+    return await update_task(task_id, {"sub_tasks": updated}, user_id, suppress_history=True, actor_display=actor_display)
+
+async def remove_subtask(task_id: str, subtask_id: str, user_id: Optional[str] = None, actor_display: Optional[str] = None) -> Dict[str, Any]:
+    task_res = await get_task(task_id)
+    if not task_res or not task_res.data:
+        raise HTTPException(status_code=404, detail="Parent task not found")
+
+    before = task_res.data
+    existing = before.get("sub_tasks") or []
+    if subtask_id not in existing:
+        return task_res  # no-op
+
+    updated = [sid for sid in existing if sid != subtask_id]
+
+    if user_id:
+        await record_history(
+            task_id=task_id,
+            action="subtask_removed",
+            created_by=user_id,
+            title=before.get("title"),
+            metadata={"subtask_id": subtask_id},
+            actor_display=actor_display,
+        )
+    return await update_task(task_id, {"sub_tasks": updated}, user_id, suppress_history=True, actor_display=actor_display)
+
+
+async def add_dependency(
+    task_id: str,
+    dependency_id: str,
+    user_id: Optional[str] = None,
+    actor_display: Optional[str] = None
+) -> Dict[str, Any]:
+    task_res = await get_task(task_id)
+    if not task_res or not task_res.data:
+        raise HTTPException(status_code=404, detail="Parent task not found")
+
+    before = task_res.data
+    existing: list[str] = before.get("dependencies") or []
+    if dependency_id in existing:
+        return task_res  # no-op
+
+    updated = existing + [dependency_id]
+
+    if user_id:
+        await record_history(
+            task_id=task_id,
+            action="dependency_added",
+            created_by=user_id,
+            title=before.get("title"),
+            metadata={"dependency_id": dependency_id},
+            actor_display=actor_display,
+        )
+
+    return await update_task(
+        task_id,
+        {"dependencies": updated},
+        user_id,
+        suppress_history=True,
+        actor_display=actor_display,
+    )
+
+
+async def remove_dependency(
+    task_id: str,
+    dependency_id: str,
+    user_id: Optional[str] = None,
+    actor_display: Optional[str] = None
+) -> Dict[str, Any]:
+    task_res = await get_task(task_id)
+    if not task_res or not task_res.data:
+        raise HTTPException(status_code=404, detail="Parent task not found")
+
+    before = task_res.data
+    existing: list[str] = before.get("dependencies") or []
+    if dependency_id not in existing:
+        return task_res  # no-op
+
+    updated = [d for d in existing if d != dependency_id]
+
+    if user_id:
+        await record_history(
+            task_id=task_id,
+            action="dependency_removed",
+            created_by=user_id,
+            title=before.get("title"),
+            metadata={"dependency_id": dependency_id},
+            actor_display=actor_display,
+        )
+
+    return await update_task(
+        task_id,
+        {"dependencies": updated},
+        user_id,
+        suppress_history=True,
+        actor_display=actor_display,
+    )
