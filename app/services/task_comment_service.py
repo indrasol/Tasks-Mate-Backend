@@ -3,34 +3,18 @@ from app.core.db.supabase_db import get_supabase_client, safe_supabase_operation
 
 
 async def _generate_sequential_comment_id() -> str:
-    """Generate the next sequential comment ID in the format 'C00001'."""
+    """Generate a random comment ID with prefix 'C' and 5 digits, ensuring uniqueness."""
     supabase = get_supabase_client()
-
-    def op():
-        return (
-            supabase
-            .from_("task_comments")
-            .select("comment_id")
-            .order("comment_id", desc=True)
-            .limit(1)
-            .execute()
-        )
-
-    res = await safe_supabase_operation(op, "Failed to fetch last comment id")
-    last_id: str | None = None
-    if res and res.data:
-        last_id = res.data[0].get("comment_id")
-
-    last_num = 0
-    if last_id and isinstance(last_id, str) and last_id.startswith("C"):
-        try:
-            last_num = int(last_id[1:])
-        except ValueError:
-            last_num = 0
-
-    next_num = last_num + 1
-    # Pad with 5 digits (C00001, C00010, etc.)
-    return f"C{next_num:05d}"
+    digits = 5
+    for _ in range(10):
+        candidate = f"C{__import__('random').randint(0, 10**digits - 1):0{digits}d}"
+        def op():
+            return supabase.from_("task_comments").select("comment_id").eq("comment_id", candidate).limit(1).execute()
+        res = await safe_supabase_operation(op, "Failed to verify comment id uniqueness")
+        if not res or not getattr(res, "data", None):
+            return candidate
+    ts = int(datetime.datetime.utcnow().timestamp()) % (10**digits)
+    return f"C{ts:0{digits}d}"
 
 async def create_task_comment(data: dict):
     """Create a new comment or reply."""

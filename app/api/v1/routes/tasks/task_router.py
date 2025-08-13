@@ -2,7 +2,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from app.api.v1.routes.projects.proj_rbac import project_rbac
 from app.models.schemas.task import TaskCreate, TaskUpdate, TaskInDB, TaskCardView
-from app.services.task_service import create_task, get_task, update_task, delete_task, get_all_tasks, get_tasks_for_project, add_subtask, remove_subtask
+from app.services.task_service import create_task, get_task, update_task, delete_task, get_all_tasks, get_tasks_for_project, add_subtask, remove_subtask, add_dependency, remove_dependency
 from app.services.auth_handler import verify_token
 from app.services.rbac import get_project_role
 
@@ -19,7 +19,7 @@ router = APIRouter()
 async def create_task_route(task: TaskCreate, user=Depends(verify_token)):
     # if role not in ["owner", "admin"]:
     #     raise HTTPException(status_code=403, detail="Not authorized")
-    result = await create_task({**task.dict(), "created_by": user["username"]}, user["username"])
+    result = await create_task({**task.model_dump(), "created_by": user["username"]}, user["username"])
     return result.data[0]
 
 @router.get("", response_model=List[TaskCardView])
@@ -102,4 +102,28 @@ async def add_subtask_to_task(task_id: str, subtask_id: str = Body(..., embed=Tr
 async def remove_subtask_from_task(task_id: str, subtask_id: str, user=Depends(verify_token)):
     """Remove a subtask from an existing task."""
     result = await remove_subtask(task_id, subtask_id, user["username"])
+    return result.data[0] if hasattr(result, "data") and isinstance(result.data, list) else result.data
+
+
+# ---------------------- Dependency Management ----------------------
+
+@router.post("/{task_id}/dependencies", response_model=TaskInDB)
+async def add_dependency_to_task(
+    task_id: str,
+    dependency_id: str = Body(..., embed=True),
+    user=Depends(verify_token)
+):
+    """Append a dependency to an existing task."""
+    result = await add_dependency(task_id, dependency_id, user["username"])
+    return result.data[0] if hasattr(result, "data") and isinstance(result.data, list) else result.data
+
+
+@router.delete("/{task_id}/dependencies/{dependency_id}", response_model=TaskInDB)
+async def remove_dependency_from_task(
+    task_id: str,
+    dependency_id: str,
+    user=Depends(verify_token)
+):
+    """Remove a dependency from an existing task."""
+    result = await remove_dependency(task_id, dependency_id, user["username"])
     return result.data[0] if hasattr(result, "data") and isinstance(result.data, list) else result.data
