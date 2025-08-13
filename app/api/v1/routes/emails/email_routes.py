@@ -35,12 +35,14 @@ async def send_org_invite_email(invite_data: OrganizationInviteInDB):
         email = invite_data.get("email")
         name = invite_data.get("name") or (email.split('@')[0] if email else "there") 
 
-        if invite_data.get("org_id"):
+        if invite_data.get("org_name"):
+            org_name = invite_data.get("org_name")
+        elif invite_data.get("org_id"):
             org_name = await get_organization_name(invite_data.get("org_id"))
             if org_name and org_name.data and 'name' in org_name.data:
                 org_name = org_name.data['name']
 
-        org_name = org_name or invite_data.get("org_name") or "TasksMate"
+        org_name = org_name or "TasksMate"
         invite_link = invite_data.get("invite_link") or "https://mytasksmate.netlify.app"
         invited_by = invite_data.get("invited_by") or "a TasksMate user"
 
