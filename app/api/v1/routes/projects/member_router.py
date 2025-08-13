@@ -6,6 +6,7 @@ from app.services.project_member_service import create_project_member, get_proje
 from app.services.auth_handler import verify_token
 from app.services.rbac import get_project_role
 from app.services.utils import inject_audit_fields
+from app.services.user_service import get_user_details_by_id
 
 router = APIRouter()
 
@@ -20,9 +21,21 @@ async def create_member(member: ProjectMemberCreate, user=Depends(verify_token),
     if role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    data = inject_audit_fields(member.dict(),user["id"],"create")
+    # Build payload and apply audit fields (also stringifies UUIDs safely)
+    member_data = member.model_dump()
+    member_data = inject_audit_fields(member_data, user["username"], "create")
 
-    result = await create_project_member(data)
+    # Always persist username for stable display on the frontend
+    try:
+        details = await get_user_details_by_id(str(member_data.get("user_id")))
+        if details and details.get("username"):
+            member_data["username"] = details["username"]
+    except Exception:
+        pass
+    
+    print(member_data)
+
+    result = await create_project_member(member_data)
     return result.data[0]
 
 @router.get("", response_model=List[ProjectMemberInDB])
