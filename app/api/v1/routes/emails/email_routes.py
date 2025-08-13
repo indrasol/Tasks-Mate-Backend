@@ -8,6 +8,8 @@ from app.utils.logger import get_logger
 
 from app.models.schemas.organization_invite import OrganizationInviteInDB
 
+from app.services.organization_service import get_organization_name
+
 router = APIRouter()
 
 logger = get_logger(__name__)
@@ -31,9 +33,15 @@ async def send_org_invite_email(invite_data: OrganizationInviteInDB):
         # email = invite_data.email
 
         email = invite_data.get("email")
-        name = invite_data.get("name") or (email.split('@')[0] if email else "there")
-        org_name = invite_data.get("org_name") or invite_data.get("org_id") or "TasksMate"
-        invite_link = invite_data.get("invite_link") or "https://tasksmate.com"
+        name = invite_data.get("name") or (email.split('@')[0] if email else "there") 
+
+        if invite_data.get("org_id"):
+            org_name = await get_organization_name(invite_data.get("org_id"))
+            if org_name and org_name.data and 'name' in org_name.data:
+                org_name = org_name.data['name']
+
+        org_name = org_name or invite_data.get("org_name") or "TasksMate"
+        invite_link = invite_data.get("invite_link") or "https://mytasksmate.netlify.app"
         invited_by = invite_data.get("invited_by") or "a TasksMate user"
 
 
@@ -71,9 +79,9 @@ async def send_org_invite_email(invite_data: OrganizationInviteInDB):
         )
         
         response = sg.send(message)
-        logger.info(f"SendGrid Response Status: {response.status_code}")
-        logger.info(f"SendGrid Response Headers: {response.headers}")
-        logger.info(f"SendGrid Response Body: {response.body}")
+        # logger.info(f"SendGrid Response Status: {response.status_code}")
+        # logger.info(f"SendGrid Response Headers: {response.headers}")
+        # logger.info(f"SendGrid Response Body: {response.body}")
         logger.info(f"Organization invite email sent successfully to {email}")
         
         return {"success": True, "message": "Organization invite email sent successfully"}

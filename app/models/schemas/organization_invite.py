@@ -14,12 +14,26 @@ class OrganizationInviteBase(BaseModel):
     expires_at: Optional[datetime] = Field(None, description="When the invite expires")
     is_cancelled: Optional[bool] = Field(False, description="Is the invite cancelled?", example=False)
     cancel_date: Optional[datetime] = Field(None, description="When the invite was cancelled")
+    updated_by: Optional[str] = Field(None, description="Who updates the invite")
+    org_name: Optional[str] = Field(None, description="Organization Name")
 
 class OrganizationInviteCreate(OrganizationInviteBase):
     pass
 
-class OrganizationInviteUpdate(OrganizationInviteBase):
-    pass
+# class OrganizationInviteUpdate(OrganizationInviteBase):
+#     pass
+
+class OrganizationInviteUpdate(BaseModel):
+    designation: Optional[str] = Field(None, description="Designation ID (UUID)", example="d1e2f3g4-5678-1234-9abc-def012345678")
+    role: Optional[str] = Field(None, description="Role ID (UUID)", example="r1e2f3g4-5678-1234-9abc-def012345678")
+    invited_by: Optional[str] = Field(None, description="Inviter's User ID (UUID)", example="b3c1e2d4-1234-5678-9abc-def012345678")
+    invite_status: Optional[InviteStatusEnum] = Field(InviteStatusEnum.PENDING, description="Status of the invite", example=InviteStatusEnum.PENDING)
+    sent_at: Optional[datetime] = Field(None, description="When the invite was sent")
+    expires_at: Optional[datetime] = Field(None, description="When the invite expires")
+    is_cancelled: Optional[bool] = Field(False, description="Is the invite cancelled?", example=False)
+    cancel_date: Optional[datetime] = Field(None, description="When the invite was cancelled")
+    updated_by: Optional[str] = Field(None, description="Who updates the invite")
+
 
 class OrganizationInviteInDB(OrganizationInviteBase):
     id: str

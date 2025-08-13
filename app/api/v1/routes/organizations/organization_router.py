@@ -82,6 +82,15 @@ async def list_user_organizations(user=Depends(verify_token)):
     """
     return await get_organizations_for_user(user["id"], user["username"], user.get("email"))
 
+
+@router.get("/user/{org_id}", response_model=List[OrgCard])
+async def list_user_organizations(org_id:str ,user=Depends(verify_token)):
+    """
+    List all organizations the user is a member of or invited to.
+    Returns simplified OrgCard objects with essential information.
+    """
+    return await get_organizations_for_user(user["id"], user["username"], user.get("email"), org_id)
+
 @router.get("/{org_id}", response_model=OrganizationInDB)
 async def read_org(org_id: str, user=Depends(verify_token), role=Depends(org_rbac)):
     result = await get_organization(org_id)

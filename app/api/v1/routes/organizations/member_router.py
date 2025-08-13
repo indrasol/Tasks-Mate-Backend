@@ -52,7 +52,7 @@ async def update_member(user_id: str, org_id: str, member: OrganizationMemberUpd
         raise HTTPException(status_code=403, detail="Only owner can assign owner role")
     if member.role == "admin" and role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Only owner/admin can assign admin role")
-    result = await update_organization_member(user_id, org_id, {**member.dict(exclude_unset=True), "updated_by": user["name"]})
+    result = await update_organization_member(user_id, org_id, {**member.dict(exclude_unset=True), "updated_by": user["username"]})
     return result.data[0]
 
 @router.delete("/{user_id}/{org_id}")
