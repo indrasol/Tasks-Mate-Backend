@@ -46,9 +46,15 @@ async def send_org_invite_email(invite_data: OrganizationInviteInDB):
         invite_link = invite_data.get("invite_link") or "https://mytasksmate.netlify.app"
         invited_by = invite_data.get("invited_by") or "a TasksMate user"
 
+        # Prefer dynamic sender (inviter's email) if provided; fall back to env/default
+        inviter_email = invite_data.get("invited_by_email")
+        default_sender = os.getenv("DEFAULT_SENDER_EMAIL", "no-reply@tasksmate.com")
+        from_email = Email(inviter_email or default_sender, 'TasksMate Team')
+
 
         message = Mail(
             from_email=Email('dharmatej.nandikanti@indrasol.com', 'TasksMate Team'),
+            # from_email=from_email,
             to_emails=To(email),
             subject=f"You've been invited to join {org_name} on TasksMate!",
             html_content=Content(
@@ -80,6 +86,13 @@ async def send_org_invite_email(invite_data: OrganizationInviteInDB):
             )
         )
         
+        # If inviter email is provided, set it as reply-to to facilitate direct responses
+        # try:
+        #     if inviter_email:
+        #         message.reply_to = Email(inviter_email)
+        # except Exception:
+        #     pass
+
         response = sg.send(message)
         # logger.info(f"SendGrid Response Status: {response.status_code}")
         # logger.info(f"SendGrid Response Headers: {response.headers}")

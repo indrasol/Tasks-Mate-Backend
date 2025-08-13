@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from app.utils.logger import log_info, log_error, log_debugger
 from functools import lru_cache
 import asyncio
-import httpx
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 
@@ -31,10 +31,22 @@ async def run_supabase_async(func):
     )
 
 # Helper for safer Supabase operations with error handling
-async def safe_supabase_operation(operation, error_message="Supabase operation failed"):
-    try:
-        return await run_supabase_async(operation)
-    except Exception as e:
-        # log_error(f"{error_message}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"{error_message}: {str(e)}")
+async def safe_supabase_operation(operation, error_message="Supabase operation failed", retries: int = 3, backoff_seconds: float = 0.25):
+    attempt = 0
+    while True:
+        try:
+            return await run_supabase_async(operation)
+        except Exception as e:
+            attempt += 1
+            error_text = str(e)
+            is_transient = (
+                "RemoteProtocolError" in error_text or
+                "ConnectionResetError" in error_text or
+                "StreamClosed" in error_text or
+                "ConnectionTerminated" in error_text
+            )
+            if attempt <= retries and is_transient:
+                await asyncio.sleep(backoff_seconds * attempt)
+                continue
+            raise HTTPException(status_code=500, detail=f"{error_message}: {error_text}")
 

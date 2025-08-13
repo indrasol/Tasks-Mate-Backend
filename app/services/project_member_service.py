@@ -18,7 +18,7 @@ async def update_project_member(user_id: str, project_id: str, data: dict):
         return supabase.from_("project_members").update(data).eq("user_id", user_id).eq("project_id", project_id).execute()
     return await safe_supabase_operation(op, "Failed to update project member")
 
-async def delete_project_member(user_id: str, project_id: str):
+async def delete_project_member(user_id: str, project_id: str, metadata: dict | None = None):
     supabase = get_supabase_client()
     def op():
         return supabase.from_("project_members").delete().eq("user_id", user_id).eq("project_id", project_id).execute()
