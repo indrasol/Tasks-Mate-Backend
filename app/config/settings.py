@@ -28,6 +28,8 @@ SUPABASE_SECRET_KEY = os.getenv("SUPABASE_SECRET_KEY_TM")
 
 HEALTH_API_KEY = os.getenv("HEALTH_API_KEY")
 
+SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY_TM")
+
 
 # Redis settings for session management
 # REDIS_HOST = os.getenv("REDISHOSTST")
