@@ -144,6 +144,16 @@ async def get_organization(org_id: str):
     return await safe_supabase_operation(op, "Failed to fetch organization")
 
 
+async def get_organization_name(org_id: str):
+    _validate_org_id(org_id)
+    supabase = get_supabase_client()
+
+    def op():
+        return supabase.from_("organizations").select("name").eq("org_id", org_id).single().execute()
+
+    return await safe_supabase_operation(op, "Failed to fetch organization")
+
+
 async def update_organization(org_id: str, data: dict):
     """Update an organization record with additional safeguards.
 
@@ -218,7 +228,7 @@ async def delete_organization(org_id: str, metadata: Optional[dict] = None):
     return await safe_supabase_operation(op, "Failed to delete organization")
 
 
-async def get_organizations_for_user(user_id: str, username: str, email: Optional[str] = None) -> List[dict]:
+async def get_organizations_for_user(user_id: str, username: str, email: Optional[str] = None, org_id: Optional[str] = None) -> List[dict]:
     """
     Get organizations for a user and return them as OrgCard format objects
     with role and designation information.
@@ -230,7 +240,10 @@ async def get_organizations_for_user(user_id: str, username: str, email: Optiona
 
     # Get orgs where user is a member with role and designation
     def member_op():
-        return supabase.from_("organization_members").select("org_id, role, designation").eq("user_id", user_id).execute()
+        if org_id:
+            return supabase.from_("organization_members").select("org_id, role, designation").eq("user_id", user_id).eq("org_id",org_id).execute()
+        else:             
+            return supabase.from_("organization_members").select("org_id, role, designation").eq("user_id", user_id).execute()
 
     member_result = await safe_supabase_operation(member_op, "Failed to fetch organization memberships")
     
