@@ -4,12 +4,19 @@ from app.models.schemas.task_history import TaskHistoryInDB
 from app.services.task_history_service import  get_task_history
 from app.services.auth_handler import verify_token
 from app.services.rbac import get_project_role
+from app.services.task_history_service import create_task_history
+from app.models.schemas.task_history import TaskHistoryCreate, TaskHistoryUpdate
 
 router = APIRouter()
 
-@router.get("/", response_model=List[TaskHistoryInDB], status_code=200)
-async def read_history(task_id: str = Query(..., description="ID of the task to get comments for"), user=Depends(verify_token)):
-    return await get_task_history(task_id)
+# Align with POST path (no trailing slash) so GET /task-history works
+@router.get("", response_model=List[TaskHistoryInDB], status_code=200)
+async def read_history(
+    task_id: str = Query(..., description="ID of the task to get history for"),
+    title: str | None = Query(None, description="Optional task title to disambiguate sequential reuse of task_id"),
+    user=Depends(verify_token)
+):
+    return await get_task_history(task_id, title)
 
 # async def project_rbac(project_id: str, user=Depends(verify_token)):
 #     role = await get_project_role(user["id"], project_id)
