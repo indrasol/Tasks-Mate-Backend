@@ -39,6 +39,7 @@ async def upload_attachment(
     task_id: str = Form(...),
     project_id: str = Form(...),  # kept for RBAC check
     title: Optional[str] = Form(None),
+    is_inline: Optional[bool] = Form(None),
     file: UploadFile = File(...),
     user=Depends(verify_token),
     role=Depends(project_rbac),
@@ -58,6 +59,7 @@ async def upload_attachment(
             user_id=user["id"],
             username=user.get("username") or user.get("email") or user["id"],
             task_title=task.get("title") or task.get("name"),
+            is_inline=is_inline
         )
         return data
     except HTTPException:
