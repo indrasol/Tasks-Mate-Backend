@@ -40,7 +40,7 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
     project_id = result.data[0]["project_id"]
 
     # Determine the project owner sent by client; fall back to creator
-    owner_name = project.owner or user["id"]
+    owner_identifier = project.owner or user["id"]
 
     # Ensure OWNER role exists
     role_res = await get_role_by_name(RoleEnum.OWNER.value)
@@ -49,7 +49,10 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
 
     already_added: set[str] = set()
 
-    user_details = await get_user_details_by_id(owner_name)
+    # Resolve owner details by ID or username; store username in projects table
+    user_details = await get_user_details_by_id(owner_identifier)
+    if user_details and user_details.get("username"):
+        data["owner"] = user_details["username"]
 
     # Insert owner membership
     await create_project_member({
@@ -63,10 +66,9 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
     already_added.add(user["id"])
 
     # If creator differs, add them as ADMIN (or OWNER if admin role absent)
-    if owner_name != user["id"]:
+    if owner_identifier != user["id"]:
         # user_details = await get_user_details_by_id(owner_name)
         await create_project_member({
-            # "user_id": user_details["id"],
             "user_id": user["id"],
             "project_id": project_id,
             "role": RoleEnum.MEMBER.value,
@@ -74,7 +76,7 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
             "is_active": True,
             "created_by":  user["username"],
         })
-        already_added.add(owner_name)
+        already_added.add(owner_identifier)
 
     # Add selected additional members (if any) as MEMBER
     if project.team_members:
@@ -82,21 +84,26 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
         # member_role_res = await get_role_by_name(RoleEnum.MEMBER.value)
         # if member_role_res.data:
         #     member_role_id = member_role_res.data[0]["role_id"]
-        for member in project.team_members:
-            if member in already_added:
+        project_usernames: list[str] = []
+        for member_id in project.team_members:
+            if member_id in already_added:
                 continue
-            # user_details = await get_user_details_by_username(member)
-            user_details = await get_user_details_by_id(owner_name)
+            member_details = await get_user_details_by_id(member_id)
+            if not member_details:
+                continue
             await create_project_member({
-                # "user_id": user_details["id"],
-                "user_id":  user_details["id"],
+                "user_id":  member_details["id"],
                 "project_id": project_id,
                 "role": RoleEnum.MEMBER.value,
-                "username":  user_details["username"],
+                "username":  member_details["username"],
                 "is_active": True,
                 "created_by":  user["username"],
             })
-            already_added.add(member)
+            project_usernames.append(member_details["username"])
+            already_added.add(member_id)
+        # Store usernames in projects.team_members for readability
+        if project_usernames:
+            data["team_members"] = project_usernames
 
     # Fetch and return the freshly-created ProjectCard
     card = await get_project_card(project_id)

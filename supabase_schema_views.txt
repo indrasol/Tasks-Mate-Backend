@@ -62,8 +62,8 @@ select
     o.description AS org_description,
     o.created_by,
     o.created_at,
-    count(p.project_id)::int as project_count,
-    count(om.user_id)::int as member_count
+    count(distinct p.project_id)::int as project_count,
+    count(distinct om.user_id)::int as member_count
 from
     organizations  o
 left join

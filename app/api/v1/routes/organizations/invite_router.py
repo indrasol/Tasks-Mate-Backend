@@ -64,8 +64,12 @@ async def create_invite(invite: OrganizationInviteCreate, background_tasks: Back
     result = await create_organization_invite(data)
     invite_data = result.data[0]
 
-    # Send invite email in background
-    background_tasks.add_task(send_org_invite_email, invite_data)
+    # Send invite email in background with inviter's email as sender
+    invite_payload_for_email = {
+        **invite_data,
+        "invited_by_email": user.get("email")
+    }
+    background_tasks.add_task(send_org_invite_email, invite_payload_for_email)
 
     return invite_data
 
