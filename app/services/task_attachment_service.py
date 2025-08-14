@@ -148,6 +148,7 @@ async def upload_and_create_task_attachment(
     username: Optional[str] = None,
     actor_display: Optional[str] = None,
     task_title: Optional[str] = None,
+    is_inline: Optional[bool] = None
 ) -> Dict[str, Any]:
     """
     - Enforce per-task limit
@@ -225,6 +226,7 @@ async def upload_and_create_task_attachment(
         "url": public_url,
         "uploaded_by": username,
         "uploaded_at": now,
+        "is_inline":is_inline
     }
 
     def op_insert():
@@ -233,15 +235,16 @@ async def upload_and_create_task_attachment(
     result = await safe_supabase_operation(op_insert, "Failed to create task attachment")
     data = result.data[0] if isinstance(result.data, list) else result.data
 
-    # 5) History
-    await record_history(
-        task_id=task_id,
-        action="attachment_created",
-        created_by=username or (user_id or ""),
-        title=task_title,
-        metadata={"attachment_id": attachment_id, "filename": original_name, "url": public_url},
-        actor_display=None,
-    )
+    if not is_inline:
+        # 5) History
+        await record_history(
+            task_id=task_id,
+            action="attachment_created",
+            created_by=username or (user_id or ""),
+            title=task_title,
+            metadata={"attachment_id": attachment_id, "filename": original_name, "url": public_url},
+            actor_display=None,
+        )
 
     return data
 
@@ -377,6 +380,7 @@ async def list_task_attachments(task_id: str):
             .select("*")
             .eq("task_id", task_id)
             .is_("deleted_at", None)
+            .is_("is_inline", None)  # Only list non-inline attachments
             .order("uploaded_at", desc=True)
             .execute()
         )

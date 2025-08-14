@@ -1,7 +1,7 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from app.models.schemas.project_resource import ProjectResourceCreate, ProjectResourceUpdate, ProjectResourceInDB
-from app.services.project_resource_service import create_project_resource, get_project_resource, update_project_resource, delete_project_resource, get_resources_for_project
+from app.services.project_resource_service import create_project_resource, get_project_resource, update_project_resource, delete_project_resource, get_resources_for_project, upload_and_create_project_resource
 from app.services.auth_handler import verify_token
 from app.services.rbac import get_project_role
 
@@ -56,3 +56,33 @@ async def delete_resource(resource_id: str, project_id: str, user=Depends(verify
         raise HTTPException(status_code=403, detail="Only owner can delete resource")
     await delete_project_resource(resource_id)
     return {"ok": True}
+
+
+@router.post("/upload", response_model=ProjectResourceInDB, status_code=status.HTTP_201_CREATED)
+async def upload_resource(
+    project_id: str = Form(...),  # kept for RBAC check
+    project_name: Optional[str] = Form(None),
+    title: Optional[str] = Form(None),
+    file: UploadFile = File(...),
+    user=Depends(verify_token),
+    role=Depends(project_rbac),
+):
+    """
+    Upload a file to storage and create an attachment row.
+    Enforces per-task limit.
+    """
+    try:        
+        
+        result = await upload_and_create_project_resource(
+            project_id=project_id,
+            project_name=project_name,
+            file=file,
+            title=title,
+            user_id=user["id"],
+            username=user.get("username") or user.get("email") or user["id"]
+        )
+        return result.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload attachment: {e}")

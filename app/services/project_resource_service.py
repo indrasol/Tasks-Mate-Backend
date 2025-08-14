@@ -1,6 +1,109 @@
+import unicodedata
 from app.core.db.supabase_db import get_supabase_client, safe_supabase_operation
 
 import datetime
+
+import os
+import re
+import mimetypes
+from typing import Dict, Any, Optional
+from fastapi import HTTPException, UploadFile
+
+import urllib.parse
+
+# Storage bucket for project resources
+RESOURCES_BUCKET = os.getenv("PROJECT_RESOURCES_BUCKET", "project-resources")
+
+def _extract_public_url(url_result: Any) -> str:
+	if isinstance(url_result, dict):
+		data = url_result.get("data") or {}
+		return data.get("publicUrl") or data.get("public_url") or ""
+	if isinstance(url_result, str):
+		return url_result
+	maybe = getattr(url_result, "public_url", None) or getattr(url_result, "publicUrl", None)
+	return str(maybe or "")
+
+def _guess_content_type(filename: str, fallback: str = "application/octet-stream") -> str:
+	lower = filename.lower()
+	ext_map = {
+		".svg": "image/svg+xml",
+		".png": "image/png",
+		".jpg": "image/jpeg",
+		".jpeg": "image/jpeg",
+		".gif": "image/gif",
+		".webp": "image/webp",
+		".bmp": "image/bmp",
+		".tif": "image/tiff",
+		".tiff": "image/tiff",
+		".pdf": "application/pdf",
+	}
+	for ext, ctype in ext_map.items():
+		if lower.endswith(ext):
+			return ctype
+	guessed, _ = mimetypes.guess_type(filename)
+	return guessed or fallback
+
+def _safe_storage_path(project_id: str, original: str, existing: Optional[set[str]]) -> str:
+	# Be defensive in case caller passes None
+	existing = existing or set()
+	base, dot, ext = original.rpartition(".")
+	if not base:
+		base, ext, dot = original, "", ""
+	path = f"{project_id}/{original}"
+	i = 1
+	while path in existing:
+		candidate = f"{base}_{i}{dot}{ext}" if ext else f"{base} ({i})"
+		path = f"{project_id}/{candidate}"
+		i += 1
+	return path
+
+async def _list_existing_paths(sb, project_id: str) -> set[str]:
+	try:
+		listing = sb.storage.from_(RESOURCES_BUCKET).list(path=project_id)
+
+		# Coerce to a list of item dicts
+		if isinstance(listing, dict):
+			data = listing.get("data") or listing.get("body") or listing.get("items") or []
+		else:
+			data = getattr(listing, "data", None) or listing
+		if not isinstance(data, list):
+			data = []
+
+		names = []
+		for o in data:
+			if isinstance(o, dict):
+				name = o.get("name") or o.get("path") or o.get("Name")
+			else:
+				name = getattr(o, "name", None) or getattr(o, "path", None)
+			if name:
+				names.append(str(name).lstrip("/"))
+
+		return {f"{project_id}/{n}" for n in names if n}
+	except Exception as e:
+		return set()
+
+# def _sanitize_name(name: str) -> str:
+# 	name = name.replace("\\", "/").split("/")[-1]
+# 	return re.sub(r"[^A-Za-z0-9 ._\-()]", "_", name)[:255]
+
+def _sanitize_name(name: str) -> str:
+	# Drop any directory components
+	raw = (name or "file").replace("\\", "/").split("/")[-1]
+	# Decode percent-encoding (e.g., %20)
+	raw = urllib.parse.unquote(raw)
+	# Normalize unicode (compatibility form)
+	raw = unicodedata.normalize("NFKC", raw)
+	# Remove non-printable/control chars
+	raw = "".join(ch for ch in raw if ch.isprintable())
+	# Restrict to safe set
+	safe = re.sub(r"[^A-Za-z0-9 ._\-()]", "_", raw)
+	# Collapse whitespace and trim leading/trailing spaces/dots
+	safe = re.sub(r"[ \t]+", " ", safe).strip(" .")
+	# Default if empty
+	if not safe:
+		safe = "file"
+	# Max filename length
+	return safe[:255]
 
 async def _generate_sequential_resource_id() -> str:
     """Generate next sequential id like 'RE0001'"""
@@ -85,3 +188,95 @@ async def get_resources_for_project(project_id, search=None, limit=20, offset=0,
     query = query.order(sort_by, desc=(sort_order == "desc"))
     result = query.range(offset, offset + limit - 1).execute()
     return result.data
+
+async def upload_and_create_project_resource(
+    *,
+    project_id: str,
+    project_name:  Optional[str],
+    file: UploadFile,
+    title: Optional[str],
+    user_id: Optional[str] = None,
+    username: Optional[str] = None,
+    actor_display: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    - Enforce per-task limit
+    - Generate sequential id A0001...
+    - Upload to storage: {task_id}/{original_filename}
+    - Fetch public URL
+    - Create DB row with the public URL
+    - Log 'attachment_created'
+    """
+    
+    sb = get_supabase_client()
+    now = datetime.datetime.utcnow().replace(microsecond=0).isoformat()
+
+    # 1) Generate ID & storage path
+    # attachment_id = await _generate_sequential_attachment_id()
+    # attachment_id = await _next_attachment_id_retry(sb)
+    # original_name = file.filename
+    original_name = _sanitize_name(file.filename or "file")
+    storage_path = f"{project_id}/{original_name}"
+
+    # 2) Upload to storage
+    # Note: use upsert=False to avoid overwriting; you can switch to True if desired
+    try:
+        # Ensure unique storage path under this task
+        existing = await _list_existing_paths(sb, project_id)
+        storage_path = _safe_storage_path(project_id, original_name, existing)
+
+        # Read the uploaded file as bytes to satisfy clients that don't accept SpooledTemporaryFile
+        file_bytes = await file.read()
+
+        # Choose the best content type available
+        content_type = _guess_content_type(original_name)
+        if content_type in ("application/octet-stream", "text/plain"):
+            # Try by extension when generic or plain text
+            content_type = _guess_content_type(original_name, fallback="application/octet-stream")
+
+        sb.storage.from_(RESOURCES_BUCKET).upload(
+            storage_path,
+            file=file_bytes,
+            file_options={
+                # Use header-style keys per storage-py docs so content-type is honored
+                "content-type": content_type,
+                "x-upsert": "true",
+                # One-year public cache
+                "cache-control": "max-age=31536000, public",
+            },
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload file: {e}")
+
+    # 3) Get public URL
+    try:
+        encoded_path = urllib.parse.quote(storage_path)
+        url_result = sb.storage.from_(RESOURCES_BUCKET).get_public_url(encoded_path)
+        
+        public_url = _extract_public_url(url_result)
+        if not public_url:
+            raise RuntimeError("Empty public URL from storage")
+        else:
+            public_url = public_url.rstrip("?")
+    except Exception as e:
+        # attempt cleanup (best effort)
+        try:
+            sb.storage.from_(RESOURCES_BUCKET).remove([storage_path])
+        except Exception:
+            pass
+        raise HTTPException(status_code=500, detail=f"Failed to get public URL: {e}")
+
+    # 4) Insert DB row
+    row = {
+        "project_id": project_id,
+        "project_name": project_name,
+        # store both for backward compatibility
+        "storage_path": storage_path,
+        "resource_name": original_name,
+        "resource_url": public_url,
+        "resource_type": 'file',
+        "created_by": username,
+        "created_at": now,
+    }
+
+    return await create_project_resource(row)
