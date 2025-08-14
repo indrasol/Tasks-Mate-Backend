@@ -56,7 +56,10 @@ router = APIRouter()
 
 @router.post("", response_model=OrganizationInviteInDB)
 async def create_invite(invite: OrganizationInviteCreate, background_tasks: BackgroundTasks, user=Depends(verify_token), role=Depends(org_rbac)):
-    if role not in ["owner", "admin"]:
+    # if role not in ["owner", "admin"]:
+    #     raise HTTPException(status_code=403, detail="Not authorized")
+
+    if not role:
         raise HTTPException(status_code=403, detail="Not authorized")
     
     data = inject_audit_fields(invite.dict(), user["username"], action="invite_org")
@@ -85,7 +88,7 @@ async def list_org_invites(
     user=Depends(verify_token)
 ):
     role = await get_org_role(user["id"], org_id)
-    if role not in ("owner", "admin"):
+    if not role:
         raise HTTPException(status_code=403, detail="Not authorized to view invites")
     return await get_invites_for_org(org_id, search=search, limit=limit, offset=offset, sort_by=sort_by, sort_order=sort_order, email=email)
 

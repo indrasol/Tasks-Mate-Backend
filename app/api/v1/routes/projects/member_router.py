@@ -18,7 +18,10 @@ router = APIRouter()
 
 @router.post("", response_model=ProjectMemberInDB)
 async def create_member(member: ProjectMemberCreate, user=Depends(verify_token), role=Depends(project_rbac)):
-    if role not in ["owner", "admin"]:
+    # if role not in ["owner", "admin"]:
+    #     raise HTTPException(status_code=403, detail="Not authorized")
+
+    if not role:
         raise HTTPException(status_code=403, detail="Not authorized")
     
     # Build payload and apply audit fields (also stringifies UUIDs safely)
