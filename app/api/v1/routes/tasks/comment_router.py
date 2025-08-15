@@ -4,7 +4,9 @@ from pydantic import BaseModel
 from app.models.schemas.task_comment import TaskCommentCreate, TaskCommentUpdate, TaskCommentInDB
 from app.services.task_comment_service import create_task_comment, get_task_comment, update_task_comment, delete_task_comment, get_comments_for_task
 from app.services.auth_handler import verify_token
-from app.services.rbac import get_project_role
+from app.api.v1.routes.projects.proj_rbac import project_rbac
+
+
 
 router = APIRouter()
 
@@ -12,15 +14,15 @@ class ReplyCreate(BaseModel):
     content: str
     parent_comment_id: str
 
-async def project_rbac(project_id: str, user=Depends(verify_token)):
-    role = await get_project_role(user["id"], project_id)
-    if not role:
-        raise HTTPException(status_code=403, detail="Not a member of this project")
-    return role
+# async def project_rbac(project_id: str, user=Depends(verify_token)):
+#     role = await get_project_role(user["id"], project_id)
+#     if not role:
+#         raise HTTPException(status_code=403, detail="Not a member of this project")
+#     return role
 
 
-@router.post("/", response_model=TaskCommentInDB, status_code=status.HTTP_201_CREATED)
-async def create_comment(comment: TaskCommentCreate, project_id: str, user=Depends(verify_token), role=Depends(project_rbac)):
+@router.post("", response_model=TaskCommentInDB, status_code=status.HTTP_201_CREATED)
+async def create_comment(comment: TaskCommentCreate, user=Depends(verify_token), role=Depends(project_rbac)):
     """Create a new top-level comment on a task."""
     payload = {**comment.dict()}
     # Ensure content is provided
@@ -52,7 +54,7 @@ async def create_comment(comment: TaskCommentCreate, project_id: str, user=Depen
         )
 
 @router.post("/reply", response_model=TaskCommentInDB, status_code=status.HTTP_201_CREATED)
-async def reply_to_comment(reply: ReplyCreate, project_id: str, user=Depends(verify_token), role=Depends(project_rbac)):
+async def reply_to_comment(reply: ReplyCreate, user=Depends(verify_token), role=Depends(project_rbac)):
     """Reply to an existing comment."""
     # Get the parent comment to ensure it exists and get task_id
     parent = await get_task_comment(reply.parent_comment_id)
@@ -124,7 +126,7 @@ async def read_comment(comment_id: str, project_id: str, user=Depends(verify_tok
     return result.data
 
 @router.put("/{comment_id}", response_model=TaskCommentInDB)
-async def update_comment(comment_id: str, comment: TaskCommentUpdate, project_id: str, user=Depends(verify_token), role=Depends(project_rbac)):
+async def update_comment(comment_id: str, comment: TaskCommentUpdate, user=Depends(verify_token), role=Depends(project_rbac)):
     # Owners/Admins can edit any comment; others can only edit their own
     if role not in ["owner", "admin"]:
         existing = await get_task_comment(comment_id)
@@ -142,7 +144,7 @@ async def update_comment(comment_id: str, comment: TaskCommentUpdate, project_id
     return result.data[0]
 
 @router.delete("/{comment_id}")
-async def delete_comment(comment_id: str, project_id: str, user=Depends(verify_token), role=Depends(project_rbac)):
+async def delete_comment(comment_id: str, user=Depends(verify_token), role=Depends(project_rbac)):
     # Owners/Admins can delete any comment; creators can delete their own
     if role not in ["owner", "admin"]:
         existing = await get_task_comment(comment_id)

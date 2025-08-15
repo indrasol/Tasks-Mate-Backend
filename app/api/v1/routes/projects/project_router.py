@@ -20,7 +20,7 @@ router = APIRouter()
 async def create_project_route(project: ProjectCreate, user=Depends(verify_token), org_role=Depends(org_rbac)):
     """Create a project and immediately return a fully-hydrated `ProjectCard` instance."""
     # Only organization owner/admin can create projects
-    if org_role not in [RoleEnum.OWNER.value, RoleEnum.ADMIN.value]:
+    if not org_role:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     # Inject audit fields – we want `created_by` to store the username rather than the raw user_id
@@ -119,6 +119,8 @@ async def list_user_projects(org_id: str, user=Depends(verify_token), org_role=D
     """
     List all projects where the current user is a member.
     """
+    if not org_role:
+        raise HTTPException(status_code=403, detail="Not authorized")
     return await get_projects_for_user(user["id"], org_id) 
 
 @router.get("/detail/{project_id}", response_model=ProjectInDB)

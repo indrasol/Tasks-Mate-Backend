@@ -9,6 +9,7 @@ class ProjectResourceBase(BaseModel):
     resource_name: str = Field(..., description="Resource name", example="API Docs")
     resource_url: Optional[str] = Field(None, description="Resource URL", example="https://example.com/api-docs.pdf")
     resource_type: Optional[str] = Field(None, description="Type of resource", example="pdf")
+    storage_path: Optional[str] = Field(None, description="Original File Storage Path")
     is_active: Optional[bool] = Field(True, description="Is the resource active?", example=True)
     created_by: Optional[str] = Field(None, description="Who created the resource")
     updated_by: Optional[str] = Field(None, description="Who last updated the resource")
