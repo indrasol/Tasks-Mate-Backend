@@ -4,7 +4,7 @@ from app.api.v1.routes.organizations.org_rbac import org_rbac
 from app.api.v1.routes.projects.proj_rbac import project_rbac
 from app.models.enums import RoleEnum
 from app.models.schemas.project import ProjectCard, ProjectCreate, ProjectUpdate, ProjectInDB
-from app.services.project_service import create_project, get_project, update_project, delete_project, get_projects_for_user, get_project_card
+from app.services.project_service import create_project, get_project, update_project, delete_project, get_projects_for_user, get_project_card, get_all_org_projects
 from app.services.auth_handler import verify_token
 from app.services.rbac import get_project_role
 from app.services.project_member_service import create_project_member
@@ -148,13 +148,21 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
     return card
 
 @router.get("/{org_id}", response_model=List[ProjectCard])
-async def list_user_projects(org_id: str, user=Depends(verify_token), org_role=Depends(org_rbac)):
+async def list_user_projects(org_id: str, show_all: bool = False, user=Depends(verify_token), org_role=Depends(org_rbac)):
     """
-    List all projects where the current user is a member.
+    List projects for the organization.
+    
+    Parameters:
+    - show_all: If true, returns all projects in the organization.
+                If false (default), returns only projects where the current user is a member.
     """
     if not org_role:
         raise HTTPException(status_code=403, detail="Not authorized")
-    return await get_projects_for_user(user["id"], org_id) 
+    
+    if show_all:
+        return await get_all_org_projects(org_id)
+    else:
+        return await get_projects_for_user(user["id"], org_id)
 
 @router.get("/detail/{project_id}", response_model=ProjectInDB)
 async def read_project(project_id: str, user=Depends(verify_token), proj_role=Depends(project_rbac)):
