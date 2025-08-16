@@ -67,11 +67,14 @@ async def create_project(data: dict):
     if "created_at" not in data:
         data["created_at"] = datetime.datetime.utcnow().isoformat()
 
+    # Remove owner_designation from the data before inserting into projects table
+    # This is because it's not needed in the projects table (we store it in project_members)
+    owner_designation = data.pop("owner_designation", None)
+
     # Serialize any date/datetime objects to ISO strings so Supabase JSON encoder can handle them
     for k, v in list(data.items()):
         if isinstance(v, (datetime.date, datetime.datetime)):
             data[k] = v.isoformat()
-
 
     def op():
         return supabase.from_("projects").insert(data).execute()

@@ -24,8 +24,14 @@ class ProjectBase(BaseModel):
     owner: Optional[str] = Field(None, description="User name of the project owner")
     team_members: Optional[List[str]] = Field(default_factory=list, description="List of user names to add as members")
 
+class TeamMemberDesignation(BaseModel):
+    id: str = Field(..., description="Team member user ID")
+    designation: Optional[str] = Field(None, description="Team member designation")
+
 class ProjectCreate(ProjectBase):
-    pass
+    # Additional fields for API only - not stored directly in projects table
+    owner_designation: Optional[str] = Field(None, description="Designation of the project owner", example="manager")
+    team_member_designations: Optional[List[TeamMemberDesignation]] = Field(default_factory=list, description="Designations for team members")
 
 class ProjectUpdate(BaseModel):
     org_id: Optional[str] = None
@@ -40,6 +46,10 @@ class ProjectUpdate(BaseModel):
     delete_reason: Optional[str] = None
     owner: Optional[str] = None
     team_members: Optional[List[str]] = None
+    
+    # Additional fields for API only - not stored directly in projects table
+    owner_designation: Optional[str] = None
+    team_member_designations: Optional[List[TeamMemberDesignation]] = None
 
     class Config:
         orm_mode = True
