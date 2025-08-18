@@ -7,8 +7,10 @@ from app.config.settings import SENDGRID_API_KEY
 from app.utils.logger import get_logger
 
 from app.models.schemas.organization_invite import OrganizationInviteInDB
+from app.models.schemas.task import TaskInDB
 
 from app.services.organization_service import get_organization_name
+from app.services.user_service import get_user_details_by_username
 
 router = APIRouter()
 
@@ -102,4 +104,80 @@ async def send_org_invite_email(invite_data: OrganizationInviteInDB):
         return {"success": True, "message": "Organization invite email sent successfully"}
     except Exception as e:
         logger.error(f"Error sending organization invite email: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Send Task Assignment Mail
+@router.post("/send-task-assignment-email")
+async def send_task_assignment_email(task_data: TaskInDB):
+    """
+    Send a task assignment email using SendGrid.
+    Expects task_data to contain: email, name, task_name, task_link, assigned_by
+    """
+    try:
+        if not SENDGRID_API_KEY:
+            raise ValueError("SendGrid API key is not configured")
+            
+        sg = SendGridAPIClient(SENDGRID_API_KEY)
+
+        if not task_data.get("assignee"):
+            raise ValueError("Assignee is required")
+
+        user_details = await get_user_details_by_username(task_data.get("assignee"))
+        email = user_details.get("email")
+        assignee = task_data.get("assignee")
+        title = task_data.get("title")
+
+        
+        invite_link = task_data.get("invite_link") or "https://mytasksmate.netlify.app"
+        invited_by = task_data.get("updated_by") or task_data.get("created_by") or "a TasksMate user"
+
+        # Prefer dynamic sender (inviter's email) if provided; fall back to env/default
+        # inviter_email =  await get_user_details_by_username(task_data.get("updated_by"))
+        # default_sender = os.getenv("DEFAULT_SENDER_EMAIL", "no-reply@tasksmate.com")
+        # from_email = Email(inviter_email or default_sender, 'TasksMate Team')
+
+
+        message = Mail(
+            from_email=Email('dharmatej.nandikanti@indrasol.com', 'TasksMate Team'),
+            # from_email=from_email,
+            to_emails=To(email),
+            subject=f"You've been assigned a task on TasksMate!",
+            html_content=Content(
+                'text/html',
+                f'''
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h1 style="color: #2563eb;">You've been assigned a task on TasksMate!</h1>
+                    <p>Hi {assignee},</p>
+                    <p>
+                        <strong>{invited_by}</strong> has assigned you a task <strong>{title}</strong> on TasksMate.
+                    </p>
+                    <p>
+                        Click the button below to Login/Signup and view the task.
+                    </p>
+                    <p style="text-align: center; margin: 24px 0;">
+                        <a href="{invite_link}" style="background: #2563eb; color: #fff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">
+                            Open TasksMate
+                        </a>
+                    </p>                    
+                </div>
+                '''
+            )
+        )
+        
+        # If inviter email is provided, set it as reply-to to facilitate direct responses
+        # try:
+        #     if inviter_email:
+        #         message.reply_to = Email(inviter_email)
+        # except Exception:
+        #     pass
+
+        response = sg.send(message)
+        # logger.info(f"SendGrid Response Status: {response.status_code}")
+        # logger.info(f"SendGrid Response Headers: {response.headers}")
+        # logger.info(f"SendGrid Response Body: {response.body}")
+        logger.info(f"Task assignment email sent successfully to {email}")
+        
+        return {"success": True, "message": "Task assignment email sent successfully"}
+    except Exception as e:
+        logger.error(f"Error sending task assignment email: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
