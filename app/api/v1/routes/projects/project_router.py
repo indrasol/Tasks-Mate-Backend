@@ -4,13 +4,14 @@ from app.api.v1.routes.organizations.org_rbac import org_rbac
 from app.api.v1.routes.projects.proj_rbac import project_rbac
 from app.models.enums import RoleEnum
 from app.models.schemas.project import ProjectCard, ProjectCreate, ProjectUpdate, ProjectInDB
-from app.services.project_service import create_project, get_project, update_project, delete_project, get_projects_for_user, get_project_card
+from app.services.project_service import create_project, get_project, update_project, delete_project, get_projects_for_user, get_project_card, get_all_org_projects
 from app.services.auth_handler import verify_token
 from app.services.rbac import get_project_role
 from app.services.project_member_service import create_project_member
 from app.services.role_service import create_role, get_role_by_name
 from app.services.utils import inject_audit_fields
 from app.services.user_service import get_user_details_by_id
+from app.core.db.supabase_db import get_supabase_client
 
 router = APIRouter()
 
@@ -54,27 +55,48 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
     if user_details and user_details.get("username"):
         data["owner"] = user_details["username"]
 
-    # Insert owner membership
+    # Insert owner membership with designation if provided
+    owner_designation = project.dict().get("owner_designation", "")
+    
+    # Get the owner's name instead of ID
+    owner_username = user_details.get("username", "")
+    
+    # Store owner's username in the project data
+    # This ensures the 'owner' column has the username instead of ID
+    if user_details and user_details.get("username"):
+        data["owner"] = owner_username
+    
     await create_project_member({
         "user_id": user_details["id"],
         "project_id": project_id,
         "role": owner_role,
-        "username": user_details["username"],
+        "username": owner_username,
+        "designation": owner_designation,
         "is_active": True,
         "created_by": user["username"],
     })
     already_added.add(user["id"])
 
-    # If creator differs, add them as ADMIN (or OWNER if admin role absent)
+    # If creator differs, add them as a MEMBER
     if owner_identifier != user["id"]:
-        # user_details = await get_user_details_by_id(owner_name)
+        # Find creator's designation if provided
+        creator_designation = ""
+        if project.team_member_designations:
+            designation_entry = next(
+                (d for d in project.team_member_designations if d.id == user["id"]), 
+                None
+            )
+            if designation_entry:
+                creator_designation = designation_entry.designation
+        
         await create_project_member({
             "user_id": user["id"],
             "project_id": project_id,
             "role": RoleEnum.MEMBER.value,
             "username": user["username"],
+            "designation": creator_designation,
             "is_active": True,
-            "created_by":  user["username"],
+            "created_by": user["username"],
         })
         already_added.add(owner_identifier)
 
@@ -91,11 +113,22 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
             member_details = await get_user_details_by_id(member_id)
             if not member_details:
                 continue
+            # Find designation if provided
+            member_designation = ""
+            if project.team_member_designations:
+                designation_entry = next(
+                    (d for d in project.team_member_designations if d.id == member_id), 
+                    None
+                )
+                if designation_entry:
+                    member_designation = designation_entry.designation
+            
             await create_project_member({
                 "user_id":  member_details["id"],
                 "project_id": project_id,
                 "role": RoleEnum.MEMBER.value,
                 "username":  member_details["username"],
+                "designation": member_designation,
                 "is_active": True,
                 "created_by":  user["username"],
             })
@@ -115,13 +148,21 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
     return card
 
 @router.get("/{org_id}", response_model=List[ProjectCard])
-async def list_user_projects(org_id: str, user=Depends(verify_token), org_role=Depends(org_rbac)):
+async def list_user_projects(org_id: str, show_all: bool = False, user=Depends(verify_token), org_role=Depends(org_rbac)):
     """
-    List all projects where the current user is a member.
+    List projects for the organization.
+    
+    Parameters:
+    - show_all: If true, returns all projects in the organization.
+                If false (default), returns only projects where the current user is a member.
     """
     if not org_role:
         raise HTTPException(status_code=403, detail="Not authorized")
-    return await get_projects_for_user(user["id"], org_id) 
+    
+    if show_all:
+        return await get_all_org_projects(org_id)
+    else:
+        return await get_projects_for_user(user["id"], org_id)
 
 @router.get("/detail/{project_id}", response_model=ProjectInDB)
 async def read_project(project_id: str, user=Depends(verify_token), proj_role=Depends(project_rbac)):
@@ -136,7 +177,38 @@ async def read_project(project_id: str, user=Depends(verify_token), proj_role=De
 async def update_project_route(project_id: str, project: ProjectUpdate, user=Depends(verify_token), proj_role=Depends(project_rbac)):
     if proj_role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Not authorized")
-    result = await update_project(project_id, {**project.dict(exclude_unset=True), "updated_by": user["id"]})
+    
+    # Extract the data to update and remove API-only fields
+    project_data = project.dict(exclude_unset=True)
+    owner_designation = project_data.pop("owner_designation", None)
+    team_member_designations = project_data.pop("team_member_designations", None)
+    
+    # Update project
+    result = await update_project(project_id, {**project_data, "updated_by": user["id"]})
+    
+    supabase = get_supabase_client()
+    
+    # If owner designation is provided and there's an owner, update the owner's designation
+    if owner_designation is not None and project.owner:
+        # Get project member record for owner
+        member_query = supabase.from_("project_members").select("*").eq("project_id", project_id).eq("role", "owner").execute()
+        
+        if member_query.data:
+            owner_record = member_query.data[0]
+            # Update designation
+            supabase.from_("project_members").update({"designation": owner_designation}).eq("id", owner_record["id"]).execute()
+    
+    # If team member designations provided, update them
+    if team_member_designations:
+        for member_designation in team_member_designations:
+            # Get project member record
+            member_query = supabase.from_("project_members").select("*").eq("project_id", project_id).eq("user_id", member_designation.id).execute()
+            
+            if member_query.data:
+                member_record = member_query.data[0]
+                # Update designation
+                supabase.from_("project_members").update({"designation": member_designation.designation}).eq("id", member_record["id"]).execute()
+    
     return result.data[0]
 
 @router.delete("/{project_id}")

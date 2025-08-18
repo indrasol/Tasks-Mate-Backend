@@ -67,11 +67,14 @@ async def create_project(data: dict):
     if "created_at" not in data:
         data["created_at"] = datetime.datetime.utcnow().isoformat()
 
+    # Remove owner_designation from the data before inserting into projects table
+    # This is because it's not needed in the projects table (we store it in project_members)
+    owner_designation = data.pop("owner_designation", None)
+
     # Serialize any date/datetime objects to ISO strings so Supabase JSON encoder can handle them
     for k, v in list(data.items()):
         if isinstance(v, (datetime.date, datetime.datetime)):
             data[k] = v.isoformat()
-
 
     def op():
         return supabase.from_("projects").insert(data).execute()
@@ -101,7 +104,37 @@ async def delete_project(project_id: str):
     return await safe_supabase_operation(op, "Failed to delete project")
 
 
+async def get_all_org_projects(org_id: str):
+    """Get all projects for an organization regardless of user membership."""
+    supabase = get_supabase_client()
+    
+    def op():
+        return supabase.from_("project_card_view").select("*").eq("org_id", org_id).execute()
+    
+    stats_result = await safe_supabase_operation(op, "Failed to fetch organization projects")
+    
+    if not stats_result or not stats_result.data:
+        return []
+    
+    enriched: list[ProjectCard] = []
+    for raw in stats_result.data:
+        card = ProjectCard(**raw)
+        # Fetch members for each project (owner + team list)
+        mem_res = await safe_supabase_operation(
+            lambda: supabase.from_("project_members").select("user_id,role").eq("project_id", card.project_id).execute(),
+            "Failed to fetch project members",
+        )
+        if mem_res and mem_res.data:
+            card.team_members = [m["user_id"] for m in mem_res.data]
+            owner_row = next((m for m in mem_res.data if m.get("role") == RoleEnum.OWNER.value), None)
+            if owner_row:
+                card.owner = owner_row["user_id"]
+        enriched.append(card)
+
+    return enriched
+
 async def get_projects_for_user(user_id, org_id):
+    """Get only the projects where the user is a member."""
     supabase = get_supabase_client()
     result = supabase.from_("project_members").select("project_id").eq("user_id", user_id).execute()
     project_ids = [row["project_id"] for row in result.data]
