@@ -18,6 +18,7 @@ from app.api.v1.routes.tasks.comment_router import router as task_comment_router
 from app.api.v1.routes.tasks.history_router import router as task_history_router
 from app.api.v1.routes.projects.stats_router import router as project_stats_router
 from app.api.v1.routes.dashboard.dashboard_router import router as dashboard_router
+from app.api.v1.routes.scratchpad.scratchpad_router import router as scratchpad_router
 
 
 router = APIRouter()
@@ -40,3 +41,4 @@ router.include_router(task_comment_router, prefix="/task-comments", tags=["Task 
 router.include_router(task_history_router, prefix="/task-history", tags=["Task History"])
 router.include_router(project_stats_router, prefix="/project-stats", tags=["Project Stats"])
 router.include_router(dashboard_router, prefix="/dashboard", tags=["Dashboard"])
+router.include_router(scratchpad_router, prefix="/scratchpads", tags=["Scratchpads"])
