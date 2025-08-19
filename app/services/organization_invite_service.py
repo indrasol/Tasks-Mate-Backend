@@ -1,5 +1,6 @@
 from typing import Optional
 from app.core.db.supabase_db import get_supabase_client, safe_supabase_operation
+from fastapi import HTTPException
 
 
 async def _generate_sequential_org_invite_id() -> str:
@@ -37,9 +38,32 @@ async def _generate_sequential_org_invite_id() -> str:
     # Pad with at least 4 digits (O0001, O0010, etc.) but grow automatically
     return f"I{next_num:04d}"
 
+async def check_organization_member_exists(data: dict):
+    supabase = get_supabase_client()
+    def op():
+        return supabase.from_("organization_members").select("user_id").eq("org_id", data["org_id"]).eq("email", data["email"]).eq("is_active", True).limit(1).execute()
+    res = await safe_supabase_operation(op, "Failed to check organization member exists")
+    if res.data:
+        raise HTTPException(400, detail="User is already a member of this organisation")
+
+async def check_organization_invite_exists(data: dict):
+    supabase = get_supabase_client()
+    def op():
+        return supabase.from_("organization_invites").select("id").eq("org_id", data["org_id"]).eq("email", data["email"]).eq("invite_status", "pending").limit(1).execute()
+    res = await safe_supabase_operation(op, "Failed to check organization invite duplicate")
+    if res.data:
+        raise HTTPException(400, detail="An invite is already pending for this user")
+
 async def create_organization_invite(data: dict):
     supabase = get_supabase_client()
     data["id"] = await _generate_sequential_org_invite_id()
+
+    # A. already a member?
+    await check_organization_member_exists(data)
+
+    # B. duplicate pending invite?
+    await check_organization_invite_exists(data)
+
     def op():        
         return supabase.from_("organization_invites").insert(data).execute()
     return await safe_supabase_operation(op, "Failed to create organization invite")

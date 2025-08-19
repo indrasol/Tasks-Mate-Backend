@@ -6,6 +6,15 @@ from app.utils.logger import get_logger
 logger = get_logger()
 
 import datetime
+from fastapi import HTTPException
+
+async def check_organization_member_exists(data: dict):
+    supabase = get_supabase_client()
+    def op():
+        return supabase.from_("organization_members").select("user_id").eq("org_id", data["org_id"]).eq("email", data["email"]).eq("is_active", True).limit(1).execute()
+    res = await safe_supabase_operation(op, "Failed to check organization member exists")
+    if res.data:
+        raise HTTPException(400, detail="User is already a member of this organisation")
 
 async def create_organization_member(data: dict):
     supabase = get_supabase_client()
@@ -15,6 +24,8 @@ async def create_organization_member(data: dict):
     # Auto-accept for owners (initial creator) if not provided
     if data.get("role") == "owner":
         data.setdefault("accepted_at", now_iso)
+
+    await check_organization_member_exists(data)
 
     def op():
         return supabase.from_("organization_members").insert(data).execute()

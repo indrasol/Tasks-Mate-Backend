@@ -56,7 +56,7 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
         data["owner"] = user_details["username"]
 
     # Insert owner membership with designation if provided
-    owner_designation = project.dict().get("owner_designation", "")
+    owner_designation = project.dict().get("owner_designation", None)
     
     # Get the owner's name instead of ID
     owner_username = user_details.get("username", "")
@@ -80,7 +80,7 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
     # If creator differs, add them as a MEMBER
     if owner_identifier != user["id"]:
         # Find creator's designation if provided
-        creator_designation = ""
+        creator_designation = None
         if project.team_member_designations:
             designation_entry = next(
                 (d for d in project.team_member_designations if d.id == user["id"]), 
@@ -98,7 +98,7 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
             "is_active": True,
             "created_by": user["username"],
         })
-        already_added.add(owner_identifier)
+        already_added.add(user["id"])
 
     # Add selected additional members (if any) as MEMBER
     if project.team_members:
@@ -114,7 +114,7 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
             if not member_details:
                 continue
             # Find designation if provided
-            member_designation = ""
+            member_designation = None
             if project.team_member_designations:
                 designation_entry = next(
                     (d for d in project.team_member_designations if d.id == member_id), 
