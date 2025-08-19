@@ -5,6 +5,7 @@ from app.models.schemas.task import TaskCreate, TaskUpdate, TaskInDB, TaskCardVi
 from app.services.task_service import create_task, get_task, update_task, delete_task, get_all_tasks, get_tasks_for_project, add_subtask, remove_subtask, add_dependency, remove_dependency
 from app.services.auth_handler import verify_token
 from app.services.rbac import get_project_role
+from app.api.v1.routes.emails.email_routes import send_task_assignment_email
 
 router = APIRouter()
 
@@ -20,6 +21,7 @@ async def create_task_route(task: TaskCreate, user=Depends(verify_token)):
     # if role not in ["owner", "admin"]:
     #     raise HTTPException(status_code=403, detail="Not authorized")
     result = await create_task({**task.model_dump(), "created_by": user["username"]}, user["username"])
+    await send_task_assignment_email(result.data[0])
     return result.data[0]
 
 @router.get("", response_model=List[TaskCardView])

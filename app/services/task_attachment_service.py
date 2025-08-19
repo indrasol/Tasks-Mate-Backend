@@ -49,6 +49,7 @@ async def _enforce_task_limit(task_id: str):
             .select("attachment_id", count="exact")
             .eq("task_id", task_id)
             .is_("deleted_at", None)
+            .is_("is_inline", None)
             .execute()
         )
     res = await safe_supabase_operation(op, "Failed to count attachments")
