@@ -65,6 +65,7 @@ class ProjectInDB(ProjectBase):
 class ProjectCard(ProjectBase):
     """Simplified project representation for dashboard cards."""
     project_id: str = Field(..., description="Project ID", example="P00001")
+    created_at: Optional[datetime] = Field(None, description="Timestamp when the project was created")
     tasks_total: int = Field(..., description="Total number of tasks in the project", example=25)
     tasks_completed: int = Field(..., description="Number of completed tasks", example=15)
     progress_percent: Decimal = Field(..., description="Project completion percentage", example=60.0)

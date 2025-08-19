@@ -148,7 +148,7 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
     return card
 
 @router.get("/{org_id}", response_model=List[ProjectCard])
-async def list_user_projects(org_id: str, show_all: bool = False, user=Depends(verify_token), org_role=Depends(org_rbac)):
+async def list_user_projects(org_id: str, show_all: bool = True, user=Depends(verify_token), org_role=Depends(org_rbac)):
     """
     List projects for the organization.
     
