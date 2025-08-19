@@ -5,6 +5,7 @@ from app.core.db.supabase_db import get_supabase_client, safe_supabase_operation
 from app.models.schemas.project import ProjectCard
 
 import datetime
+from fastapi import HTTPException
 
 async def _generate_sequential_project_id() -> str:
     """Generate the next sequential project ID in the format 'P00001'."""
@@ -55,9 +56,19 @@ async def get_project_card(project_id: str):
     return None
 
 
+async def check_project_exists(data: dict):
+    supabase = get_supabase_client()
+    def op():
+        return supabase.from_("projects").select("project_id").eq("org_id", data["org_id"]).eq("name",  data["name"]).limit(1).execute()
+    res = await safe_supabase_operation(op, "Failed to check project exists")
+    if res.data:
+        raise HTTPException(400, detail="A project with the same name already exists in this organisation")
+
 async def create_project(data: dict):
     """Insert a new project and return the Supabase response."""
     supabase = get_supabase_client()
+
+    await check_project_exists(data)
 
     # Generate the next sequential project_id
     project_id = await _generate_sequential_project_id()
