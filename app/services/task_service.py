@@ -170,7 +170,7 @@ async def update_task(
 
     # 2) Normalize incoming payload
     payload: Dict[str, Any] = {}
-    for k in UPDATE_WHITELIST + ["assignee", "sub_tasks", "dependencies"]:
+    for k in UPDATE_WHITELIST + ["assignee", "sub_tasks", "dependencies"] + ["is_subtask"]:
         if k in data:
             payload[k] = data[k]
 
@@ -306,7 +306,7 @@ async def get_all_tasks(
     org_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     supabase = get_supabase_client()
-    query = supabase.from_("task_card_view").select("*")
+    query = supabase.from_("task_card_view").select("*").eq("is_subtask", False)
 
     if search:
         query = query.ilike("title", f"%{search}%")
@@ -330,7 +330,7 @@ async def get_tasks_for_project(
     org_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     supabase = get_supabase_client()
-    query = supabase.from_("task_card_view").select("*").eq("project_id", project_id)
+    query = supabase.from_("task_card_view").select("*").eq("project_id", project_id).eq("is_subtask", False)
 
     if search:
         query = query.ilike("title", f"%{search}%")
@@ -366,6 +366,8 @@ async def add_subtask(task_id: str, subtask_id: str, user_id: Optional[str] = No
             actor_display=actor_display,
         )
 
+    await update_task(subtask_id, {"is_subtask": True}, user_id, suppress_history=True, actor_display=actor_display)
+
     # Persist, suppress generic 'updated' history
     return await update_task(task_id, {"sub_tasks": updated}, user_id, suppress_history=True, actor_display=actor_display)
 
@@ -390,6 +392,9 @@ async def remove_subtask(task_id: str, subtask_id: str, user_id: Optional[str] =
             metadata={"subtask_id": subtask_id},
             actor_display=actor_display,
         )
+
+    await update_task(subtask_id, {"is_subtask": False}, user_id, suppress_history=True, actor_display=actor_display)
+
     return await update_task(task_id, {"sub_tasks": updated}, user_id, suppress_history=True, actor_display=actor_display)
 
 

@@ -20,6 +20,7 @@ class TaskBase(BaseModel):
     metadata: Optional[List[dict]] = Field([], description="Additional metadata", example=[{"field": "status", "old": "not_started", "new": "in_progress"}])
     created_by: Optional[str] = Field(None, description="Who created the task")
     updated_by: Optional[str] = Field(None, description="Who last updated the task")
+    is_subtask: Optional[bool] = Field(None, description="Is Sub Task")
 
 class TaskCreate(TaskBase):
     pass
