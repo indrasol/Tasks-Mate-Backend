@@ -1,7 +1,20 @@
 from app.core.db.supabase_db import get_supabase_client, safe_supabase_operation
+from fastapi import HTTPException
+
+
+async def check_project_member_exists(data: dict):
+    supabase = get_supabase_client()
+    def op():
+        return supabase.from_("project_members").select("user_id").eq("project_id", data["project_id"]).eq("user_id",  data["user_id"]).limit(1).execute()
+    res = await safe_supabase_operation(op, "Failed to check project member exists")
+    if res.data:
+        raise HTTPException(400, detail="User already belongs to this project")
 
 async def create_project_member(data: dict):
     supabase = get_supabase_client()
+
+    await check_project_member_exists(data)
+
     def op():
         return supabase.from_("project_members").insert(data).execute()
     return await safe_supabase_operation(op, "Failed to create project member")
