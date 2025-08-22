@@ -1,6 +1,10 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+# from pydantic import BaseModel, EmailStr, ValidationError
+
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Email, To, Content
 from app.config.settings import SENDGRID_API_KEY
@@ -16,6 +20,64 @@ router = APIRouter()
 
 logger = get_logger(__name__)
 
+# default_sender: str = os.getenv("DEFAULT_SENDER_EMAIL", "no-reply@tasksmate.com")
+default_sender: str = os.getenv("DEFAULT_SENDER_EMAIL", "dharmatej.nandikanti@indrasol.com")
+
+from_email: Email = Email(default_sender, 'TasksMate Team')
+
+default_web_link:str = os.getenv("DEFAULT_WEB_LINK","https://mytasksmate.netlify.app")
+
+
+# class EmailValidator(BaseModel):
+#     email: EmailStr
+
+async def send_mail_to_user(email: str, subject: str, html_content: str):
+    try:
+        # ✅ Validate email format using Pydantic
+        # try:
+        #     EmailValidator(email=default_sender)
+        # except ValidationError:
+        #     logger.warning(f"Invalid email format: {default_sender}")
+        #     raise HTTPException(status_code=400, detail="Invalid email address format.")
+        
+
+        # # ✅ Validate email format using Pydantic
+        # try:
+        #     EmailValidator(email=email)
+        # except ValidationError:
+        #     logger.warning(f"Invalid email format: {email}")
+        #     raise HTTPException(status_code=400, detail="Invalid email address format.")
+
+        if not SENDGRID_API_KEY:
+            raise HTTPException(status_code=500, detail="SendGrid API key not configured.")
+
+        sg = SendGridAPIClient(SENDGRID_API_KEY)
+
+        message = Mail(
+            from_email=from_email,
+            to_emails=To(email),
+            subject=subject,
+            html_content=Content('text/html', html_content)
+        )
+
+        response = sg.send(message)
+        logger.info(f"SendGrid Status: {response.status_code}")
+        logger.debug(f"SendGrid Response Body: {response.body}")
+        logger.debug(f"SendGrid Response Headers: {response.headers}")
+
+        if response.status_code >= 400:
+            raise HTTPException(status_code=500, detail="Failed to send email via SendGrid.")
+
+        return {"success": True, "message": "Email sent successfully"}
+
+    except HTTPException:
+        # Allow explicit HTTP exceptions to propagate cleanly
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error sending email to {email} from {default_sender}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error sending email to {email} from {default_sender}: {e}")
+
+
 @router.post("/send-org-invite-email")
 async def send_org_invite_email(invite_data: OrganizationInviteInDB):
     """
@@ -23,17 +85,7 @@ async def send_org_invite_email(invite_data: OrganizationInviteInDB):
     Expects invite_data to contain: email, name, org_name, invite_link, invited_by
     """
     try:
-        if not SENDGRID_API_KEY:
-            raise ValueError("SendGrid API key is not configured")
-            
-        sg = SendGridAPIClient(SENDGRID_API_KEY)
-
-        # name = "there" if not invite_data.email else invite_data.email.split('@')[0]
-        # org_name = invite_data.org_id or "TasksMate"
-        # invite_link = "https://tasksmate.com"
-        # invited_by = invite_data.invited_by or "a TasksMate user"
-        # email = invite_data.email
-
+        
         email = invite_data.get("email")
         name = invite_data.get("name") or (email.split('@')[0] if email else "there") 
 
@@ -44,24 +96,20 @@ async def send_org_invite_email(invite_data: OrganizationInviteInDB):
             if org_name and org_name.data and 'name' in org_name.data:
                 org_name = org_name.data['name']
 
-        org_name = org_name or "TasksMate"
-        invite_link = invite_data.get("invite_link") or "https://mytasksmate.netlify.app"
+        invite_link = invite_data.get("invite_link") or default_web_link
         invited_by = invite_data.get("invited_by") or "a TasksMate user"
 
         # Prefer dynamic sender (inviter's email) if provided; fall back to env/default
-        inviter_email = invite_data.get("invited_by_email")
-        default_sender = os.getenv("DEFAULT_SENDER_EMAIL", "no-reply@tasksmate.com")
-        from_email = Email(inviter_email or default_sender, 'TasksMate Team')
+        # inviter_email = invite_data.get("invited_by_email")
+        # If inviter email is provided, set it as reply-to to facilitate direct responses
+        # try:
+        #     if inviter_email:
+        #         message.reply_to = Email(inviter_email)
+        # except Exception:
+        #     pass
 
-
-        message = Mail(
-            from_email=Email('dharmatej.nandikanti@indrasol.com', 'TasksMate Team'),
-            # from_email=from_email,
-            to_emails=To(email),
-            subject=f"You've been invited to join {org_name} on TasksMate!",
-            html_content=Content(
-                'text/html',
-                f'''
+        subject=f"You've been invited to join {org_name} on TasksMate!"
+        html_content=f'''
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                     <h1 style="color: #2563eb;">Invitation to join {org_name}</h1>
                     <p>Hi {name},</p>
@@ -85,23 +133,9 @@ async def send_org_invite_email(invite_data: OrganizationInviteInDB):
                     </p>
                 </div>
                 '''
-            )
-        )
         
-        # If inviter email is provided, set it as reply-to to facilitate direct responses
-        # try:
-        #     if inviter_email:
-        #         message.reply_to = Email(inviter_email)
-        # except Exception:
-        #     pass
 
-        response = sg.send(message)
-        # logger.info(f"SendGrid Response Status: {response.status_code}")
-        # logger.info(f"SendGrid Response Headers: {response.headers}")
-        # logger.info(f"SendGrid Response Body: {response.body}")
-        logger.info(f"Organization invite email sent successfully to {email}")
-        
-        return {"success": True, "message": "Organization invite email sent successfully"}
+        return await send_mail_to_user(email, subject, html_content)
     except Exception as e:
         logger.error(f"Error sending organization invite email: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -114,11 +148,7 @@ async def send_task_assignment_email(task_data: TaskInDB):
     Expects task_data to contain: email, name, task_name, task_link, assigned_by
     """
     try:
-        if not SENDGRID_API_KEY:
-            raise ValueError("SendGrid API key is not configured")
-            
-        sg = SendGridAPIClient(SENDGRID_API_KEY)
-
+        
         if not task_data.get("assignee"):
             raise ValueError("Assignee is required")
 
@@ -126,58 +156,35 @@ async def send_task_assignment_email(task_data: TaskInDB):
         email = user_details.get("email")
         assignee = task_data.get("assignee")
         title = task_data.get("title")
-
         
-        invite_link = task_data.get("invite_link") or "https://mytasksmate.netlify.app"
+        invite_link = task_data.get("invite_link") or default_web_link
         invited_by = task_data.get("updated_by") or task_data.get("created_by") or "a TasksMate user"
 
         # Prefer dynamic sender (inviter's email) if provided; fall back to env/default
         # inviter_email =  await get_user_details_by_username(task_data.get("updated_by"))
-        # default_sender = os.getenv("DEFAULT_SENDER_EMAIL", "no-reply@tasksmate.com")
         # from_email = Email(inviter_email or default_sender, 'TasksMate Team')
 
-
-        message = Mail(
-            from_email=Email('dharmatej.nandikanti@indrasol.com', 'TasksMate Team'),
-            # from_email=from_email,
-            to_emails=To(email),
-            subject=f"You've been assigned a task on TasksMate!",
-            html_content=Content(
-                'text/html',
-                f'''
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                    <h1 style="color: #2563eb;">You've been assigned a task on TasksMate!</h1>
-                    <p>Hi {assignee},</p>
-                    <p>
-                        <strong>{invited_by}</strong> has assigned you a task <strong>{title}</strong> on TasksMate.
-                    </p>
-                    <p>
-                        Click the button below to Login/Signup and view the task.
-                    </p>
-                    <p style="text-align: center; margin: 24px 0;">
-                        <a href="{invite_link}" style="background: #2563eb; color: #fff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">
-                            Open TasksMate
-                        </a>
-                    </p>                    
-                </div>
-                '''
-            )
-        )
+        subject=f"You've been assigned a task on TasksMate!"
+        html_content=f'''
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h1 style="color: #2563eb;">You've been assigned a task on TasksMate!</h1>
+                <p>Hi {assignee},</p>
+                <p>
+                    <strong>{invited_by}</strong> has assigned you a task <strong>{title}</strong> on TasksMate.
+                </p>
+                <p>
+                    Click the button below to Login/Signup and view the task.
+                </p>
+                <p style="text-align: center; margin: 24px 0;">
+                    <a href="{invite_link}" style="background: #2563eb; color: #fff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">
+                        Open TasksMate
+                    </a>
+                </p>                    
+            </div>
+            '''
         
-        # If inviter email is provided, set it as reply-to to facilitate direct responses
-        # try:
-        #     if inviter_email:
-        #         message.reply_to = Email(inviter_email)
-        # except Exception:
-        #     pass
 
-        response = sg.send(message)
-        # logger.info(f"SendGrid Response Status: {response.status_code}")
-        # logger.info(f"SendGrid Response Headers: {response.headers}")
-        # logger.info(f"SendGrid Response Body: {response.body}")
-        logger.info(f"Task assignment email sent successfully to {email}")
-        
-        return {"success": True, "message": "Task assignment email sent successfully"}
+        return await send_mail_to_user(email, subject, html_content)
     except Exception as e:
         logger.error(f"Error sending task assignment email: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
