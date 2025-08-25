@@ -62,3 +62,40 @@ class InviteStatusEnum(str, Enum):
     EXPIRED = "expired"
     CANCELLED = "cancelled"
     ACCEPTED = "accepted" 
+
+
+# Enums for bug status, priority, and type
+class BugStatusEnum(str, Enum):
+    OPEN = "open"
+    IN_PROGRESS = "in_progress"
+    IN_REVIEW = "in_review"
+    RESOLVED = "resolved"
+    REOPENED = "reopened"
+    CLOSED = "closed"
+    WONT_FIX = "won_t_fix"
+    DUPLICATE = "duplicate"
+
+class BugPriorityEnum(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+class BugTypeEnum(str, Enum):
+    BUG = "bug"
+    ENHANCEMENT = "enhancement"
+    TASK = "task"
+    DOCUMENTATION = "documentation"
+
+
+# Enums for filtering and sorting
+class BugSortBy(str, Enum):
+    CREATED_AT = "created_at"
+    UPDATED_AT = "updated_at"
+    DUE_DATE = "due_date"
+    PRIORITY = "priority"
+    STATUS = "status"
+
+class SortOrder(str, Enum):
+    ASC = "asc"
+    DESC = "desc"
