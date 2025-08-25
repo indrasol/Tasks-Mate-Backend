@@ -8,6 +8,7 @@ from app.api.v1.routes.register.auth import router as auth_router
 from app.api.v1.routes.organizations.organization_router import router as organization_router
 from app.api.v1.routes.projects.project_router import router as project_router
 from app.api.v1.routes.tasks.task_router import router as task_router
+from app.api.v1.routes.bugs.bug_router import router as bug_router
 from app.api.v1.routes.organizations.member_router import router as organization_member_router
 from app.api.v1.routes.organizations.invite_router import router as organization_invite_router
 from app.api.v1.routes.organizations.designation_router import router as designation_router
@@ -32,6 +33,7 @@ router.include_router(auth_router, tags=["Register - auth_router"])
 router.include_router(organization_router, prefix="/organizations", tags=["Organizations"])
 router.include_router(project_router, prefix="/projects", tags=["Projects"])
 router.include_router(task_router, prefix="/tasks", tags=["Tasks"])
+router.include_router(bug_router, prefix="/bugs", tags=["Bugs"])
 router.include_router(organization_member_router, prefix="/organization-members", tags=["Organization Members"])
 router.include_router(organization_invite_router, prefix="/organization-invites", tags=["Organization Invites"])
 router.include_router(designation_router, prefix="/designations", tags=["Designations"])
