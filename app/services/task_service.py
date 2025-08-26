@@ -35,6 +35,7 @@ UPDATE_WHITELIST = [
     "completed_at",
     "tags",
     "project_id",
+    "assignee",
     # NOTE: sub_tasks / dependencies are handled by dedicated endpoints
 ]
 

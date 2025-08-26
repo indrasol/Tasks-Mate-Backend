@@ -215,7 +215,7 @@ async def upload_and_create_project_resource(
     # attachment_id = await _generate_sequential_attachment_id()
     # attachment_id = await _next_attachment_id_retry(sb)
     # original_name = file.filename
-    original_name = _sanitize_name(file.filename or "file")
+    original_name = _sanitize_name(title or file.filename or "file")
     storage_path = f"{project_id}/{original_name}"
 
     # 2) Upload to storage
