@@ -6,7 +6,7 @@ from fastapi import HTTPException, UploadFile
 from app.core.db.supabase_db import get_supabase_client, safe_supabase_operation
 from app.models.schemas.bug import (
     BugCreate, BugUpdate, BugCommentCreate, BugCommentUpdate, BugRelationCreate,
-    
+    BugSearchParams
 )
 
 from app.models.enums import BugStatusEnum, BugPriorityEnum, BugTypeEnum
@@ -102,9 +102,23 @@ async def update_bug(bug_id: str, bug_data: BugUpdate, username: str) -> Dict[st
         raise HTTPException(status_code=404, detail="Bug not found")
     
     # Prepare update data
-    update_data = bug_data.dict(exclude_unset=True)
+    update_data = bug_data.dict(exclude_unset=True, exclude_none=False)
     update_data["updated_at"] = datetime.utcnow().isoformat()
     
+    # Handle special case for closed_at when status changes to 'closed'
+    if 'status' in update_data and update_data['status'] == BugStatusEnum.CLOSED and 'closed_at' not in update_data:
+        update_data['closed_at'] = datetime.utcnow().isoformat()
+    elif 'status' in update_data and update_data['status'] != BugStatusEnum.CLOSED:
+        # If status is changing to anything other than closed, set closed_at to null
+        update_data['closed_at'] = None
+    
+    # Ensure datetime objects are serialized to ISO strings
+    for key, value in update_data.items():
+        if isinstance(value, datetime):
+            update_data[key] = value.isoformat()
+        elif value is None:
+            # Keep None values as is (important for setting closed_at to null when reopening)
+            continue
     # Calculate changes for activity log
     changes = {}
     for key, new_value in update_data.items():
@@ -823,46 +837,41 @@ async def get_activity_detail(bug_id: str, activity_id: str) -> Dict[str, Any]:
 # Search and filter bugs
 async def search_bugs(
     tracker_id: str,
-    project_id: Optional[str] = None,
-    status: Optional[List[BugStatusEnum]] = None,
-    priority: Optional[List[BugPriorityEnum]] = None,
-    type: Optional[List[BugTypeEnum]] = None,
-    assignee: Optional[List[str]] = None,
-    reporter: Optional[List[str]] = None,
-    tags: Optional[List[str]] = None,
-    search_query: Optional[str] = None,
-    sort_by: str = "updated_at",
-    sort_order: str = "desc",
-    page: int = 1,
-    page_size: int = 20
+    search_params: BugSearchParams = None
 ) -> Dict[str, Any]:
     """Search and filter bugs with pagination."""
     supabase = get_supabase_client()
     
     # Build the query
-    # query = supabase.from_("bug_details").select("*", count="exact")
-    query = supabase.from_("bugs").select("*", count="exact")
 
+    query = supabase.from_("bugs").select("*", count="exact")
+    
+    # Get params from the model or use defaults
+    params = search_params or BugSearchParams()
     
     # Apply filters
     if tracker_id:
         query = query.eq("tracker_id", tracker_id)
-    if project_id:
-        query = query.eq("project_id", project_id)
-    if status:
-        query = query.in_("status", [s.value for s in status])
-    if priority:
-        query = query.in_("priority", [p.value for p in priority])
-    if type:
-        query = query.in_("type", [t.value for t in type])
-    if assignee:
-        query = query.in_("assignee", assignee)
-    if reporter:
-        query = query.in_("reporter", reporter)
-    if tags:
-        query = query.contains("tags", tags)
-    if search_query:
-        query = query.or_(f"title.ilike.%{search_query}%,description.ilike.%{search_query}%")
+    if params.project_id:
+        query = query.eq("project_id", params.project_id)
+    if params.status:
+        query = query.in_("status", [s.value for s in params.status])
+    if params.priority:
+        query = query.in_("priority", [p.value for p in params.priority])
+    if params.type:
+        query = query.in_("type", [t.value for t in params.type])
+    if params.assignee:
+        query = query.in_("assignee", params.assignee)
+    if params.reporter:
+        query = query.in_("reporter", params.reporter)
+    if params.tags:
+        query = query.contains("tags", params.tags)
+    if params.search_query:
+        query = query.or_(f"title.ilike.%{params.search_query}%,description.ilike.%{params.search_query}%")
+    
+    # Apply sorting
+    sort_by = params.sort_by or "updated_at"
+    sort_order = params.sort_order or "desc"
     
     # Apply sorting
     if sort_order.lower() == "asc":
@@ -871,6 +880,8 @@ async def search_bugs(
         query = query.order(sort_by, desc=True)
     
     # Apply pagination
+    page = params.page or 1
+    page_size = params.page_size or 20
     start = (page - 1) * page_size
     end = start + page_size - 1
     query = query.range(start, end)
@@ -884,6 +895,6 @@ async def search_bugs(
     return {
         "data": result.data if result.data else [],
         "total": result.count if hasattr(result, 'count') else 0,
-        "page": page,
-        "page_size": page_size
+        "page": params.page,
+        "page_size": params.page_size
     }

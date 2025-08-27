@@ -23,6 +23,7 @@ class BugBase(BaseModel):
     actual_result: Optional[str] = Field(None, description="Actual result")
     tracker_id: Optional[str] = Field(None, description="ID of the test tracker this bug is associated with")
     tracker_name: Optional[str] = Field(None, description="Name of the test tracker")
+    closed_at: Optional[datetime] = Field(None, description="Date when the bug was closed")
 
     class Config:
         json_encoders = {
@@ -52,6 +53,7 @@ class BugUpdate(BaseModel):
     actual_result: Optional[str] = Field(None, description="Actual result")
     tracker_id: Optional[str] = Field(None, description="ID of the test tracker this bug is associated with")
     tracker_name: Optional[str] = Field(None, description="Name of the test tracker")
+    closed_at: Optional[datetime] = Field(None, description="Date when the bug was closed")
 
     class Config:
         json_encoders = {
@@ -64,6 +66,7 @@ class BugInDB(BugBase):
     reporter: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    closed_at: Optional[datetime] = None
 
     class Config:
         orm_mode = True
@@ -172,6 +175,26 @@ class BugFilter(BaseModel):
     created_before: Optional[datetime] = None
     updated_after: Optional[datetime] = None
     updated_before: Optional[datetime] = None
+
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat() if v else None
+        }
+
+class BugSearchParams(BaseModel):
+    """Standardized parameters for bug search and filtering."""
+    project_id: Optional[str] = Field(None, description="Filter by project ID")
+    status: Optional[List[BugStatusEnum]] = Field(None, description="Filter by status")
+    priority: Optional[List[BugPriorityEnum]] = Field(None, description="Filter by priority")
+    type: Optional[List[BugTypeEnum]] = Field(None, description="Filter by type")
+    assignee: Optional[List[str]] = Field(None, description="Filter by assignee username")
+    reporter: Optional[List[str]] = Field(None, description="Filter by reporter username")
+    tags: Optional[List[str]] = Field(None, description="Filter by tags")
+    search_query: Optional[str] = Field(None, description="Search in title and description")
+    sort_by: str = Field("updated_at", description="Field to sort by")
+    sort_order: str = Field("desc", description="Sort order (asc/desc)")
+    page: int = Field(1, ge=1, description="Page number")
+    page_size: int = Field(20, ge=1, le=100, description="Items per page")
 
     class Config:
         json_encoders = {
