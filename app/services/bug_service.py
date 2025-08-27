@@ -119,7 +119,6 @@ async def update_bug(bug_id: str, bug_data: BugUpdate, username: str) -> Dict[st
         elif value is None:
             # Keep None values as is (important for setting closed_at to null when reopening)
             continue
-    
     # Calculate changes for activity log
     changes = {}
     for key, new_value in update_data.items():
@@ -844,6 +843,7 @@ async def search_bugs(
     supabase = get_supabase_client()
     
     # Build the query
+
     query = supabase.from_("bugs").select("*", count="exact")
     
     # Get params from the model or use defaults
@@ -872,6 +872,8 @@ async def search_bugs(
     # Apply sorting
     sort_by = params.sort_by or "updated_at"
     sort_order = params.sort_order or "desc"
+    
+    # Apply sorting
     if sort_order.lower() == "asc":
         query = query.order(sort_by, desc=False)
     else:

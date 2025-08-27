@@ -1,3 +1,4 @@
+
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path, UploadFile, File
 
@@ -59,27 +60,6 @@ async def create_new_bug(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
-
-# @router.get("/search/{tracker_id}", response_model=list[BugInDB])
-# async def list_bugs_endpoint(
-#     tracker_id: str,
-#     current_user: dict = Depends(verify_token)
-# ):
-#     """List all bugs."""
-#     if not current_user:
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED,
-#             detail="Not authenticated"
-#         )
-    
-#     try:
-#         result = await list_bugs(tracker_id)
-#         return result.data if result.data else []
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail=str(e)
-#         )
 
 @router.get("/search/{tracker_id}", response_model=Dict[str, Any])
 async def search_bugs_endpoint(
