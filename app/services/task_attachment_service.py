@@ -3,7 +3,7 @@ import os
 import datetime
 import re
 import mimetypes
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional, List
 from fastapi import HTTPException, UploadFile
 
 from app.core.db.supabase_db import get_supabase_client, safe_supabase_operation
@@ -168,7 +168,7 @@ async def upload_and_create_task_attachment(
     # attachment_id = await _generate_sequential_attachment_id()
     attachment_id = await _next_attachment_id_retry(sb)
     # original_name = file.filename
-    original_name = _sanitize_name(file.filename or "file")
+    original_name = _sanitize_name(title or file.filename or "file")
     storage_path = f"{task_id}/{original_name}"
 
     # 2) Upload to storage
@@ -381,7 +381,8 @@ async def list_task_attachments(task_id: str):
             .select("*")
             .eq("task_id", task_id)
             .is_("deleted_at", None)
-            .is_("is_inline", None)  # Only list non-inline attachments
+            # .is_("is_inline", None)  # Only list non-inline attachments
+            .or_("is_inline.is.false,is_inline.is.null")
             .order("uploaded_at", desc=True)
             .execute()
         )

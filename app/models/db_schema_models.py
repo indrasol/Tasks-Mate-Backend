@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, ARRAY, JSON, Float, Date, Boolean
+from sqlalchemy import Column, Integer, Interval, String, ForeignKey, DateTime, Text, ARRAY, JSON, Float, Date, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Enum as SQLAlchemyEnum
@@ -10,7 +10,7 @@ from enum import Enum
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any, Union
 from pydantic import BaseModel, Field, ConfigDict
-from models.enums import RoleEnum, ProjectStatusEnum, TaskStatusEnum, PriorityEnum, DesignationEnum, InviteStatusEnum
+from app.models.enums import RoleEnum, ProjectStatusEnum, TaskStatusEnum, PriorityEnum, DesignationEnum, InviteStatusEnum
 
 from sqlalchemy import Column, String, Text, Boolean, DateTime, Date, ForeignKey, JSON, ARRAY
 from sqlalchemy.dialects.postgresql import UUID
@@ -301,3 +301,166 @@ class Notification(Base):
     read = Column(Boolean, default=False)
     created_at = Column(DateTime, default=func.now())
 
+class BugPriority(Base):
+    __tablename__ = "bug_priorities"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, nullable=False)
+    description = Column(Text)
+    color = Column(String)
+    icon = Column(String)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    def __repr__(self):
+        return f"<BugPriority {self.name}>"
+
+class BugStatus(Base):
+    __tablename__ = "bug_statuses"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, nullable=False)
+    description = Column(Text)
+    is_resolved = Column(Boolean, default=False)
+    color = Column(String)
+    icon = Column(String)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    def __repr__(self):
+        return f"<BugStatus {self.name}>"
+
+class BugType(Base):
+    __tablename__ = "bug_types"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, nullable=False)
+    description = Column(Text)
+    icon = Column(String)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    def __repr__(self):
+        return f"<BugType {self.name}>"
+
+class Bug(Base):
+    __tablename__ = "bugs"
+    
+    id = Column(String, primary_key=True, index=True)
+    tracker_id = Column(String, ForeignKey("test_trackers.tracker_id"))
+    tracker_name = Column(String)
+    title = Column(String, nullable=False)
+    description = Column(Text)
+    status = Column(Enum('open', 'in_progress', 'in_review', 'resolved', 'reopened', 'closed', 'won_t_fix', 'duplicate', 
+                        name='bug_status_enum'), nullable=False, default='open')
+    priority = Column(Enum('low', 'medium', 'high', 'critical', name='bug_priority_enum'), default='medium')
+    type = Column(Enum('bug', 'enhancement', 'task', 'documentation', name='bug_type_enum'), default='bug')
+    assignee = Column(String, ForeignKey("users.username"))
+    reporter = Column(String, ForeignKey("users.username"), nullable=False)
+    project_id = Column(String, ForeignKey("projects.project_id"), nullable=False)
+    project_name = Column(String)
+    tags = Column(ARRAY(String), default=[])
+    due_date = Column(DateTime(timezone=True))
+    estimated_time = Column(Interval)
+    actual_time = Column(Interval)
+    environment = Column(Text)
+    steps_to_reproduce = Column(Text)
+    expected_result = Column(Text)
+    actual_result = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relationships
+    comments = relationship("BugComment", back_populates="bug", cascade="all, delete-orphan")
+    attachments = relationship("BugAttachment", back_populates="bug", cascade="all, delete-orphan")
+    activity_logs = relationship("BugActivityLog", back_populates="bug", cascade="all, delete-orphan")
+    watchers = relationship("BugWatcher", back_populates="bug", cascade="all, delete-orphan")
+    source_relations = relationship("BugRelation", 
+                                  foreign_keys="BugRelation.source_bug_id",
+                                  back_populates="source_bug")
+    target_relations = relationship("BugRelation",
+                                   foreign_keys="BugRelation.target_bug_id",
+                                   back_populates="target_bug")
+
+    def __repr__(self):
+        return f"<Bug {self.id}: {self.title}>"
+
+class BugComment(Base):
+    __tablename__ = "bug_comments"
+    
+    id = Column(String, primary_key=True, index=True)
+    bug_id = Column(String, ForeignKey("bugs.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(String, nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relationships
+    bug = relationship("Bug", back_populates="comments")
+    
+    def __repr__(self):
+        return f"<BugComment {self.id} for Bug {self.bug_id}>"
+
+class BugAttachment(Base):
+    __tablename__ = "bug_attachments"
+    
+    id = Column(String, primary_key=True, index=True)
+    bug_id = Column(String, ForeignKey("bugs.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(String, nullable=False)
+    file_name = Column(String, nullable=False)
+    file_path = Column(String, nullable=False)
+    file_type = Column(String)
+    file_size = Column(Integer)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    bug = relationship("Bug", back_populates="attachments")
+    
+    def __repr__(self):
+        return f"<BugAttachment {self.file_name} for Bug {self.bug_id}>"
+
+class BugActivityLog(Base):
+    __tablename__ = "bug_activity_logs"
+    
+    id = Column(String, primary_key=True, index=True)
+    bug_id = Column(String, ForeignKey("bugs.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(String, nullable=False)
+    activity_type = Column(String, nullable=False)
+    old_value = Column(JSONB)
+    new_value = Column(JSONB)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    bug = relationship("Bug", back_populates="activity_logs")
+    
+    def __repr__(self):
+        return f"<BugActivityLog {self.id} for Bug {self.bug_id}>"
+
+class BugWatcher(Base):
+    __tablename__ = "bug_watchers"
+    
+    bug_id = Column(String, ForeignKey("bugs.id", ondelete="CASCADE"), primary_key=True)
+    user_id = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    bug = relationship("Bug", back_populates="watchers")
+    
+    def __repr__(self):
+        return f"<BugWatcher User {self.user_id} watching Bug {self.bug_id}>"
+
+class BugRelation(Base):
+    __tablename__ = "bug_relations"
+    
+    source_bug_id = Column(String, ForeignKey("bugs.id", ondelete="CASCADE"), primary_key=True)
+    target_bug_id = Column(String, ForeignKey("bugs.id", ondelete="CASCADE"), primary_key=True)
+    relation_type = Column(String, primary_key=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_by = Column(String, nullable=False)
+    
+    # Relationships
+    source_bug = relationship("Bug", foreign_keys=[source_bug_id], back_populates="source_relations")
+    target_bug = relationship("Bug", foreign_keys=[target_bug_id], back_populates="target_relations")
+    
+    def __repr__(self):
+        return f"<BugRelation {self.source_bug_id} {self.relation_type} {self.target_bug_id}>"
