@@ -2,13 +2,12 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from app.api.v1.routes.organizations.org_rbac import org_rbac
 from app.api.v1.routes.projects.proj_rbac import project_rbac
-from app.models.enums import RoleEnum
+from app.models.enums import DesignationEnum, RoleEnum
 from app.models.schemas.project import ProjectCard, ProjectCreate, ProjectUpdate, ProjectInDB
 from app.services.project_service import create_project, get_project, update_project, delete_project, get_projects_for_user, get_project_card, get_all_org_projects
 from app.services.auth_handler import verify_token
-from app.services.rbac import get_project_role
 from app.services.project_member_service import create_project_member
-from app.services.role_service import create_role, get_role_by_name
+from app.services.role_service import get_role_by_name
 from app.services.utils import inject_audit_fields
 from app.services.user_service import get_user_details_by_id
 from app.core.db.supabase_db import get_supabase_client
@@ -35,6 +34,9 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
     # If the frontend hasn't supplied it, raise a clear error
     if not data.get("org_id"):
         raise HTTPException(status_code=400, detail="Missing org_id in request body")
+    
+    # Insert owner membership with designation if provided
+    owner_designation = data.dict().get("owner_designation", None)
 
     # Persist the project
     result = await create_project(data)
@@ -45,8 +47,10 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
 
     # Ensure OWNER role exists
     role_res = await get_role_by_name(RoleEnum.OWNER.value)
-    if role_res.data:
+    if role_res.data and role_res.data[0]["name"]:
         owner_role = role_res.data[0]["name"]
+    else:
+        owner_role = RoleEnum.MEMBER.value
 
     already_added: set[str] = set()
 
@@ -54,9 +58,6 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
     user_details = await get_user_details_by_id(owner_identifier)
     if user_details and user_details.get("username"):
         data["owner"] = user_details["username"]
-
-    # Insert owner membership with designation if provided
-    owner_designation = project.dict().get("owner_designation", None)
     
     # Get the owner's name instead of ID
     owner_username = user_details.get("username", "")
@@ -65,6 +66,9 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
     # This ensures the 'owner' column has the username instead of ID
     if user_details and user_details.get("username"):
         data["owner"] = owner_username
+
+    if owner_designation == "":
+        owner_designation = None
     
     await create_project_member({
         "user_id": user_details["id"],
@@ -88,6 +92,9 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
             )
             if designation_entry:
                 creator_designation = designation_entry.designation
+
+        if creator_designation == "":
+            creator_designation = None
         
         await create_project_member({
             "user_id": user["id"],
@@ -123,6 +130,9 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
                 if designation_entry:
                     member_designation = designation_entry.designation
             
+            if member_designation == "":
+                member_designation = None
+
             await create_project_member({
                 "user_id":  member_details["id"],
                 "project_id": project_id,
