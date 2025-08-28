@@ -72,10 +72,23 @@ async def _organization_exists(org_id: str) -> bool:
     return bool(result.data)
 
 
-async def _organization_name_exists(name: str) -> bool:
+async def _organization_name_exists(name: str, username:str, email:str) -> bool:
     supabase = get_supabase_client()
     result = supabase.from_("organizations").select("org_id").eq("name", name).execute()
-    return bool(result.data)
+
+    # loop through result.data and check if any org_id matches the membership
+    for org in result.data:
+        result = supabase.from_("organization_members").select("org_id").eq("org_id", org["org_id"]).eq("email", email).eq("is_active", True).limit(1).execute()
+        if(bool(result.data)):
+            return True
+
+    # loop through result.data and check if any invite is present
+    for org in result.data:
+        result = supabase.from_("organization_invites").select("org_id").eq("org_id", org["org_id"]).eq("email", email).eq("invite_status", "pending").limit(1).execute()
+        if(bool(result.data)):
+            return True
+            
+    return False
 
 
 async def create_organization(data: dict):
@@ -90,9 +103,14 @@ async def create_organization(data: dict):
     """
     _validate_data(data, required_fields=["name","description"])
     name = data["name"]
+    created_by = data["created_by"]
+    created_by_email = data["created_by_email"]
+
+    #remove created_by_email from data
+    data.pop("created_by_email", None)
 
     # Prevent duplicates on name
-    if await _organization_name_exists(name):
+    if await _organization_name_exists(name, created_by, created_by_email):
         raise ValueError(f"Organization with name '{name}' already exists.")
     
     # Generate sequential organization ID e.g. 'O0001', 'O0002', ...
@@ -174,8 +192,14 @@ async def update_organization(org_id: str, data: dict):
 
     # If the user is attempting to change the name, ensure the new name is unique
     new_name = data.get("name")
+    updated_by = data.get("updated_by")
+    updated_by_email = data.get("updated_by_email")
+
+    # remove updated_by_email from data
+    data.pop("updated_by_email", None)
+
     if new_name and new_name != current_name:
-        if await _organization_name_exists(new_name):
+        if await _organization_name_exists(new_name, updated_by, updated_by_email):
             raise ValueError(f"Organization name '{new_name}' is already in use. Please choose a different name.")
 
     # Auto-set updated_at timestamp if not provided

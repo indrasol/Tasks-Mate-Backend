@@ -34,9 +34,10 @@ async def create_org(org: OrganizationCreate, user=Depends(verify_token)):
     description = org_data.get("description")
     designation = org_data.get("designation")
     username = user["username"]
+    email = user["email"]
 
     try:
-        result_org = await create_organization({"name":name, "description":description, "designation":designation, "created_by": username})
+        result_org = await create_organization({"name":name, "description":description, "designation":designation, "created_by": username, "created_by_email": email })
         org_id = result_org.data[0]["org_id"]
         role = org_data.get("role", RoleEnum.OWNER.value)
         
@@ -102,7 +103,7 @@ async def read_org(org_id: str, user=Depends(verify_token), role=Depends(org_rba
 async def update_org(org_id: str, org: OrganizationUpdate, user=Depends(verify_token), role=Depends(org_rbac)):
     if role not in [RoleEnum.OWNER.value, RoleEnum.ADMIN.value]:
         raise HTTPException(status_code=403, detail="Not authorized")
-    result = await update_organization(org_id, {**org.dict(exclude_unset=True), "updated_by": user["username"]})
+    result = await update_organization(org_id, {**org.dict(exclude_unset=True), "updated_by": user["username"], "updated_by_email": user["email"]})
     return result.data[0]
 
 @router.delete("/{org_id}")
