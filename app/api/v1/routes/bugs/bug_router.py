@@ -1,4 +1,5 @@
-from typing import List, Optional
+
+from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path, UploadFile, File
 
 from app.services.auth_handler import verify_token
@@ -7,7 +8,7 @@ from app.models.schemas.bug import (
     BugCreate, BugUpdate, BugInDB, BugWithRelations,
     BugCommentCreate, BugCommentInDB, BugCommentWithUser,
     BugAttachmentInDB, BugRelationCreate, BugRelationInDB,
-    BugStatusEnum, BugPriorityEnum, BugTypeEnum
+    BugStatusEnum, BugPriorityEnum, BugTypeEnum, BugSearchParams
 )
 from app.services.bug_service import (
     create_bug, get_bug, update_bug, delete_bug,
@@ -60,45 +61,13 @@ async def create_new_bug(
             detail=str(e)
         )
 
-# @router.get("/search/{tracker_id}", response_model=list[BugInDB])
-# async def list_bugs_endpoint(
-#     tracker_id: str,
-#     current_user: dict = Depends(verify_token)
-# ):
-#     """List all bugs."""
-#     if not current_user:
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED,
-#             detail="Not authenticated"
-#         )
-    
-#     try:
-#         result = await list_bugs(tracker_id)
-#         return result.data if result.data else []
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail=str(e)
-#         )
-
-@router.get("/search/{tracker_id}", response_model=dict)
+@router.get("/search/{tracker_id}", response_model=Dict[str, Any])
 async def search_bugs_endpoint(
     tracker_id: str,
-    project_id: Optional[str] = Query(None, description="Filter by project ID"),
-    status: Optional[List[BugStatusEnum]] = Query(None, description="Filter by status"),
-    priority: Optional[List[BugPriorityEnum]] = Query(None, description="Filter by priority"),
-    type: Optional[List[BugTypeEnum]] = Query(None, description="Filter by type"),
-    assignee: Optional[List[str]] = Query(None, description="Filter by assignee username"),
-    reporter: Optional[List[str]] = Query(None, description="Filter by reporter username"),
-    tags: Optional[List[str]] = Query(None, description="Filter by tags"),
-    search: Optional[str] = Query(None, description="Search in title and description"),
-    sort_by: str = Query("updated_at", description="Field to sort by"),
-    sort_order: str = Query("desc", description="Sort order (asc/desc)"),
-    page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    current_user: dict = Depends(verify_token)
+    current_user: dict = Depends(verify_token),
+    search_params: BugSearchParams = Depends()
 ):
-    """Search and filter bugs with pagination."""
+    """Search and filter bugs with pagination using a standardized model via query parameters."""
     if not current_user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -108,18 +77,33 @@ async def search_bugs_endpoint(
     try:
         result = await search_bugs(
             tracker_id=tracker_id,
-            project_id=project_id,
-            status=status,
-            priority=priority,
-            type=type,
-            assignee=assignee,
-            reporter=reporter,
-            tags=tags,
-            search_query=search,
-            sort_by=sort_by,
-            sort_order=sort_order,
-            page=page,
-            page_size=page_size
+            search_params=search_params
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+        
+@router.post("/search/{tracker_id}", response_model=Dict[str, Any])
+async def search_bugs_post_endpoint(
+    tracker_id: str,
+    search_params: BugSearchParams,
+    current_user: dict = Depends(verify_token)
+):
+    """Search and filter bugs with pagination using a standardized model via request body.
+    This endpoint is useful for more complex searches where query parameters might be limiting."""
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+    
+    try:
+        result = await search_bugs(
+            tracker_id=tracker_id,
+            search_params=search_params
         )
         return result
     except Exception as e:
