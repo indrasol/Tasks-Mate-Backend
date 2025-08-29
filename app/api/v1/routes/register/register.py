@@ -18,22 +18,6 @@ import asyncio
 
 router = APIRouter()
 
-# # Create a custom verify function specifically for registration
-# import jwt
-# from fastapi import Header, HTTPException
-# from app.config.settings import SUPABASE_SECRET_KEY
-# from app.utils.logger import log_info
-
-# from fastapi import Header, HTTPException
-# from typing import Dict
-# import jwt  # pyjwt
-# import logging
-
-# # Configure your logger as needed
-# log_info = logging.getLogger("auth").info
-
-# SUPABASE_SECRET_KEY = "your-secret-key"  # Replace or securely load from env
-
 async def registration_verify_token(authorization: str = Header(None)) -> Dict:
     """
     Verify JWT token for registration endpoint only.
@@ -95,47 +79,13 @@ async def registration_verify_token(authorization: str = Header(None)) -> Dict:
         log_info(f"Registration token verification error: {str(e)}")
         raise HTTPException(status_code=500, detail="Authentication system error")
 
-
-
-
-
-# # Helper function to get or create tenant
-# async def get_or_create_tenant(tenant_name):
-#     supabase = get_supabase_client()
-#     def check_tenant():
-#         return supabase.from_("tenants") \
-#             .select("id") \
-#             .eq("name", tenant_name) \
-#             .execute()
-        
-#     tenant_response = await safe_supabase_operation(
-#         check_tenant,
-#         "Failed to check if tenant exists"
-#     )
-    
-#     if tenant_response.data:
-#         return tenant_response.data[0]["id"]
-    
-#     # Create new tenant
-#     def create_tenant():
-#         return supabase.from_("tenants") \
-#             .insert({"name": tenant_name}) \
-#             .execute()
-        
-#     new_tenant_response = await safe_supabase_operation(
-#         create_tenant,
-#         "Failed to create tenant"
-#     )
-    
-#     tenant_id = new_tenant_response.data[0]["id"]
-#     log_info(f"Created new tenant: {tenant_name} with ID: {tenant_id}")
-    
-#     return tenant_id
-
 @router.post("/register")
 async def register(request_data: RegisterRequest, current_user: dict = Depends(registration_verify_token)):
     try:
         supabase = get_supabase_client()
+        log_info(f"Supabase client: {supabase}")
+        log_info(f"Request data: {request_data}")
+        log_info(f"Current user: {current_user}")
 
         def check_user():
             return supabase.from_("users").select("*").eq("id", request_data.user_id).execute()
