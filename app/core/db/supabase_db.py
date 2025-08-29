@@ -16,7 +16,7 @@ thread_pool = ThreadPoolExecutor()
 def get_supabase_client():
     # Prefer service role key on the server for privileged operations (e.g., storage uploads)
     # Fallback to public anon key if service key is not configured
-    key_to_use = SUPABASE_SERVICE_KEY or SUPABASE_API_KEY
+    key_to_use = SUPABASE_API_KEY or SUPABASE_SERVICE_KEY
     log_debugger(f"SUPABASE_PROJECT_URL: {SUPABASE_PROJECT_URL}")
     # Avoid logging the actual secret value
     which_key = "service" if SUPABASE_SERVICE_KEY else "anon"

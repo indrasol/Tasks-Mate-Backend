@@ -1,45 +1,21 @@
 # main.py
-# import time
+
 import uvicorn
-# from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
-# from slowapi import Limiter, _rate_limit_exceeded_handler
-# from slowapi.util import get_remote_address
-# from slowapi.errors import RateLimitExceeded
 from fastapi import FastAPI, Request, Response, Depends
 from app.api.v1.routes.routes import router as api_router
 from fastapi.middleware.cors import CORSMiddleware
-# import asyncio
-# import uuid
-# from config.settings import origins
-# from config.settings import title
-# from config.settings import description
-# from config.settings import version
-# from fastapi.staticfiles import StaticFiles
-# from config.settings import REPORTS_DIR
-# from config.settings import ML_MODELS_DIR
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import traceback
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi import Request
-# from core.intent_classification.intent_dataset import train_intent_classifier
 from contextlib import asynccontextmanager
 from app.services.logging import setup_logging
 from app.utils.logger import log_info
-# from core.cache.session_manager import SessionManager
-# from config.settings import SUPABASE_URL
-# from alembic import command
-# import anthropic
 import httpx
-# from alembic.config import Config
-# from v1.api.health.health_monitor import health_monitor
-# from v1.api.routes.health import setup_health_monitoring
-# from services.logging import setup_logging
 import sys
-# Prometheus instrumentation
-# from prometheus_fastapi_instrumentator import Instrumentator
-# from utils.prometheus_metrics import setup_custom_metrics_endpoint, APP_ACTIVE_SESSIONS, authenticate_metrics
 import os
+from . import config
 
 
 # session_manager = SessionManager()
@@ -55,22 +31,6 @@ async def lifespan(app: FastAPI):
     # log_info("Connecting redis session manager...")
     
     try:
-        # await session_manager.connect()  # Connect to Redis
-        # log_info("Connected to session manager...")
-
-        # # Initialize health monitoring after app is fully set up
-        # log_info("Setting up health monitoring...")
-        # # Capture initial route information after all routes are registered
-        # health_monitor.capture_routes_info(app)
-        # log_info("Health monitoring initialized.")
-
-       
-        # Set cache directory
-        # log_info("Downloading transformer models...")
-        # download_transformer_models(max_retries=5)
-        # log_info("Transformer models downloaded.")
-        # # Initialize active sessions gauge
-        # APP_ACTIVE_SESSIONS.set(0)
         
         yield
     finally:
