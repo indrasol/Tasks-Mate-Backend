@@ -1,16 +1,15 @@
 # routers/router.py
 from typing import Dict
-from fastapi import APIRouter, Depends, HTTPException, Body, BackgroundTasks, Header
+from fastapi import APIRouter, Depends, HTTPException, Header
 import jwt
 # from sqlalchemy.ext.asyncio import AsyncSession
 # from sqlalchemy.future import select
 # from models.db_schema_models import User, Tenant, UserTenantAssociation
 from app.core.db.supabase_db import get_supabase_client, safe_supabase_operation
 # from sqlalchemy import insert
-import re
 from app.models.registration_models import RegisterRequest
 from app.utils.logger import log_info
-from app.services.auth_handler import verify_token, verify_api_key
+from app.services.auth_handler import verify_api_key
 from app.config.settings import SUPABASE_SECRET_KEY
 # from fastapi.security import APIKeyHeader
 # from functools import partial
@@ -86,6 +85,40 @@ async def register(request_data: RegisterRequest, current_user: dict = Depends(r
         log_info(f"Supabase client: {supabase}")
         log_info(f"Request data: {request_data}")
         log_info(f"Current user: {current_user}")
+
+        def check_user():
+            return supabase.from_("users").select("*").eq("id", request_data.user_id).execute()
+
+        existing = await safe_supabase_operation(check_user, "Check user failed")
+        if existing.data:
+            raise HTTPException(status_code=400, detail="User already exists")
+
+        new_user_data = {
+            "id": request_data.user_id,
+            "username": request_data.username,
+            "email": request_data.email
+        }
+
+        def insert_user():
+            return supabase.from_("users").insert(new_user_data).execute()
+
+        await safe_supabase_operation(insert_user, "Insert user failed")
+
+        return {"message": "User registered successfully"}
+
+    except HTTPException as http_exc:
+        # Preserve original HTTPException (e.g., 400 already exists)
+        raise http_exc
+    except Exception as e:
+        log_info(f"Registration error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Registration failed")
+    
+@router.post("/register_confirm")
+async def register_confirm(request_data: RegisterRequest):
+    try:
+        supabase = get_supabase_client()
+        log_info(f"Supabase client: {supabase}")
+        log_info(f"Request data: {request_data}")
 
         def check_user():
             return supabase.from_("users").select("*").eq("id", request_data.user_id).execute()
