@@ -15,25 +15,18 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      DEV_BRANCH_NAME: development   # or whatever your persistent dev branch is called
-      SUPABASE_DEV_PROJECT_REF: ${{ secrets.SUPABASE_DEV_PROJECT_ID }}
+      POSTGRES_URL_NON_POOLING_DEV: ${{ secrets.POSTGRES_URL_NON_POOLING_DEV }}
     steps:
       - uses: actions/checkout@v4
-
       - uses: supabase/setup-cli@v1
         with: { version: latest }
-
-      # Get the dev branch's Postgres URLs (non-pooling + pooling) as env vars.
-      # This writes secrets to $GITHUB_ENV (NOT to logs).
-      - name: Get dev branch connection info
-        run: supabase --experimental branches get "$DEV_BRANCH_NAME" --project-ref "$SUPABASE_DEV_PROJECT_REF" -o env >> $GITHUB_ENV
 
       - name: Generate migration from dev DB (if any)
         run: |
           mkdir -p supabase/migrations
           ts=$(date -u +%Y%m%d%H%M%S)
           supabase db diff \
-            --db-url "$POSTGRES_URL_NON_POOLING" \
+            --db-url "$POSTGRES_URL_NON_POOLING_DEV" \
             --schema public,auth,storage \
             -f "from-dev-${ts}" || echo "No diff"
 
