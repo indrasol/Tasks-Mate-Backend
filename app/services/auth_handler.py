@@ -1,15 +1,10 @@
-import base64
-from fastapi.security import OAuth2PasswordBearer
 from fastapi import HTTPException, Header
 from app.config.settings import SUPABASE_SECRET_KEY, SUPABASE_API_KEY
 from fastapi import FastAPI
 from app.utils.logger import log_info
-from app.core.db.supabase_db import get_supabase_client, safe_supabase_operation
 import jwt
 from fastapi import Depends
 from fastapi.security import APIKeyHeader
-import time
-import datetime
 
 app = FastAPI()
 
@@ -64,27 +59,35 @@ async def verify_token(authorization: str = Header(None), is_registration: bool 
 
         log_info(f"Token valid for user ID: {user_id}")
 
-        # Look up user in Supabase
-        supabase = get_supabase_client()
+        user_data = payload.get("user_metadata") or payload.get("app_metadata") or {}
 
-        def user_op():
-            return supabase.from_("users").select("username,email").eq("id", user_id).execute()
-
-        user_response = await safe_supabase_operation(user_op, "User lookup failed")
-
-        if is_registration:
-            # During registration, allow the user to not exist yet
-            return {"id": user_id}
-
-        if not user_response.data:
-            raise HTTPException(status_code=404, detail="User not found")
-
-        user_data = user_response.data[0]
         return {
             "id": user_id,
-            "username": user_data.get("username"),
-            "email": user_data.get("email")
+            "username": user_data.get("username") or payload.get("username"),
+            "email": user_data.get("email") or payload.get("email")
         }
+
+        # Look up user in Supabase
+        # supabase = get_supabase_client()
+
+        # def user_op():
+        #     return supabase.from_("users").select("username,email").eq("id", user_id).execute()
+
+        # user_response = await safe_supabase_operation(user_op, "User lookup failed")
+
+        # if is_registration:
+        #     # During registration, allow the user to not exist yet
+        #     return {"id": user_id}
+
+        # if not user_response.data:
+        #     raise HTTPException(status_code=404, detail="User not found")
+
+        # user_data = user_response.data[0]
+        # return {
+        #     "id": user_id,
+        #     "username": user_data.get("username"),
+        #     "email": user_data.get("email")
+        # }
 
     except HTTPException as he:
         raise he

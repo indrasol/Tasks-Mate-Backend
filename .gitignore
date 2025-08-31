@@ -30,7 +30,7 @@ coverage.xml
 *.log
 
 # Migrations
-migrations/
+# migrations/
 
 # Static files
 staticfiles/

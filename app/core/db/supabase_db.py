@@ -19,7 +19,7 @@ def get_supabase_client():
     key_to_use = SUPABASE_SERVICE_KEY or SUPABASE_API_KEY
     log_debugger(f"SUPABASE_PROJECT_URL: {SUPABASE_PROJECT_URL}")
     # Avoid logging the actual secret value
-    which_key = "service" if SUPABASE_SERVICE_KEY else "anon"
+    which_key = "anon" if SUPABASE_API_KEY else "service"
     log_debugger(f"Using Supabase key type: {which_key}")
     supbase: Client = create_client(SUPABASE_PROJECT_URL, key_to_use)
     return supbase

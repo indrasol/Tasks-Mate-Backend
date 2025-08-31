@@ -1,38 +1,21 @@
 # routers/router.py
 from typing import Dict
-from fastapi import APIRouter, Depends, HTTPException, Body, BackgroundTasks, Header
+from fastapi import APIRouter, Depends, HTTPException, Header
 import jwt
 # from sqlalchemy.ext.asyncio import AsyncSession
 # from sqlalchemy.future import select
 # from models.db_schema_models import User, Tenant, UserTenantAssociation
 from app.core.db.supabase_db import get_supabase_client, safe_supabase_operation
 # from sqlalchemy import insert
-import re
 from app.models.registration_models import RegisterRequest
 from app.utils.logger import log_info
-from app.services.auth_handler import verify_token, verify_api_key
+from app.services.auth_handler import verify_api_key
 from app.config.settings import SUPABASE_SECRET_KEY
 # from fastapi.security import APIKeyHeader
 # from functools import partial
 import asyncio
 
 router = APIRouter()
-
-# # Create a custom verify function specifically for registration
-# import jwt
-# from fastapi import Header, HTTPException
-# from app.config.settings import SUPABASE_SECRET_KEY
-# from app.utils.logger import log_info
-
-# from fastapi import Header, HTTPException
-# from typing import Dict
-# import jwt  # pyjwt
-# import logging
-
-# # Configure your logger as needed
-# log_info = logging.getLogger("auth").info
-
-# SUPABASE_SECRET_KEY = "your-secret-key"  # Replace or securely load from env
 
 async def registration_verify_token(authorization: str = Header(None)) -> Dict:
     """
@@ -95,47 +78,47 @@ async def registration_verify_token(authorization: str = Header(None)) -> Dict:
         log_info(f"Registration token verification error: {str(e)}")
         raise HTTPException(status_code=500, detail="Authentication system error")
 
-
-
-
-
-# # Helper function to get or create tenant
-# async def get_or_create_tenant(tenant_name):
-#     supabase = get_supabase_client()
-#     def check_tenant():
-#         return supabase.from_("tenants") \
-#             .select("id") \
-#             .eq("name", tenant_name) \
-#             .execute()
-        
-#     tenant_response = await safe_supabase_operation(
-#         check_tenant,
-#         "Failed to check if tenant exists"
-#     )
-    
-#     if tenant_response.data:
-#         return tenant_response.data[0]["id"]
-    
-#     # Create new tenant
-#     def create_tenant():
-#         return supabase.from_("tenants") \
-#             .insert({"name": tenant_name}) \
-#             .execute()
-        
-#     new_tenant_response = await safe_supabase_operation(
-#         create_tenant,
-#         "Failed to create tenant"
-#     )
-    
-#     tenant_id = new_tenant_response.data[0]["id"]
-#     log_info(f"Created new tenant: {tenant_name} with ID: {tenant_id}")
-    
-#     return tenant_id
-
 @router.post("/register")
 async def register(request_data: RegisterRequest, current_user: dict = Depends(registration_verify_token)):
     try:
         supabase = get_supabase_client()
+        log_info(f"Supabase client: {supabase}")
+        log_info(f"Request data: {request_data}")
+        log_info(f"Current user: {current_user}")
+
+        def check_user():
+            return supabase.from_("users").select("*").eq("id", request_data.user_id).execute()
+
+        existing = await safe_supabase_operation(check_user, "Check user failed")
+        if existing.data:
+            raise HTTPException(status_code=400, detail="User already exists")
+
+        new_user_data = {
+            "id": request_data.user_id,
+            "username": request_data.username,
+            "email": request_data.email
+        }
+
+        def insert_user():
+            return supabase.from_("users").insert(new_user_data).execute()
+
+        await safe_supabase_operation(insert_user, "Insert user failed")
+
+        return {"message": "User registered successfully"}
+
+    except HTTPException as http_exc:
+        # Preserve original HTTPException (e.g., 400 already exists)
+        raise http_exc
+    except Exception as e:
+        log_info(f"Registration error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Registration failed")
+    
+@router.post("/register_confirm")
+async def register_confirm(request_data: RegisterRequest):
+    try:
+        supabase = get_supabase_client()
+        log_info(f"Supabase client: {supabase}")
+        log_info(f"Request data: {request_data}")
 
         def check_user():
             return supabase.from_("users").select("*").eq("id", request_data.user_id).execute()
