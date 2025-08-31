@@ -2,14 +2,11 @@
 name: Capture Supabase Studio changes (dev)
 
 on:
-  # Run on code pushes to dev (but avoid loops when we commit migrations)
   push:
     branches: [development]
     paths-ignore:
       - 'supabase/migrations/**'
-  # Allow manual runs too (useful if you changed only the DB in Studio)
   workflow_dispatch:
-  # Optional: run hourly to scoop up DB-first changes with no code push
   schedule:
     - cron: '0 * * * *'
 
@@ -18,25 +15,26 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      DEV_PROJECT_ID: ${{ secrets.SUPABASE_DEV_PROJECT_ID }}   # project ref of your persistent "development" branch
+      DEV_BRANCH_NAME: development   # or whatever your persistent dev branch is called
     steps:
       - uses: actions/checkout@v4
 
       - uses: supabase/setup-cli@v1
-        with: { version: latest }  # installs the supabase CLI :contentReference[oaicite:2]{index=2}
+        with: { version: latest }
 
-      # Link this CI run to your DEV branch project, then diff
-      - name: Link to dev branch
-        run: supabase link --project-ref "$DEV_PROJECT_ID"
+      # Get the dev branch's Postgres URLs (non-pooling + pooling) as env vars.
+      # This writes secrets to $GITHUB_ENV (NOT to logs).
+      - name: Get dev branch connection info
+        run: supabase --experimental branches get "$DEV_BRANCH_NAME" -o env >> $GITHUB_ENV
 
       - name: Generate migration from dev DB (if any)
         run: |
           mkdir -p supabase/migrations
           ts=$(date -u +%Y%m%d%H%M%S)
-          # Diff remote DEV DB → create a new migration file in the repo
-          # Include public, auth, storage so policies & buckets are captured when relevant
-          supabase db diff --linked --schema public,auth,storage -f "from-dev-${ts}" || echo "No diff"
-        # db diff generates SQL that reconciles local migrations -> remote state. :contentReference[oaicite:3]{index=3}
+          supabase db diff \
+            --db-url "$POSTGRES_URL_NON_POOLING" \
+            --schema public,auth,storage \
+            -f "from-dev-${ts}" || echo "No diff"
 
       - name: Commit migration if created
         uses: stefanzweifel/git-auto-commit-action@v5
