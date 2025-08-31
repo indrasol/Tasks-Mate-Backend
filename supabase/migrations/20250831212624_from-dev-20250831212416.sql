@@ -6,5 +6,3 @@ as permissive
 for insert
 to anon, authenticated, service_role
 with check (true);
-
-
