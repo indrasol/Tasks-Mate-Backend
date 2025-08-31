@@ -31,7 +31,7 @@ jobs:
           ts=$(date -u +%Y%m%d%H%M%S)
           supabase db diff \
             --db-url "$POSTGRES_URL_POOLING_DEV" \
-            --schema public,auth,storage \
+            --schema public \
             -f "from-dev-${ts}" || echo "No diff"
 
       - name: Commit migration if created
