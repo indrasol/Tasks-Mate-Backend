@@ -26,12 +26,32 @@ jobs:
       - uses: supabase/setup-cli@v1
         with: { version: latest }
 
+      # Resolve IPv4 and append hostaddr=<A-record> to your DB URL
+      - name: Force IPv4 for Postgres URL
+        run: |
+          DBURL="${POSTGRES_URL_NON_POOLING_DEV}"
+          # Extract hostname from the URL
+          HOST=$(python - <<'PY'
+          from urllib.parse import urlparse
+          import os
+          u = urlparse(os.environ['POSTGRES_URL_NON_POOLING_DEV'])
+          print(u.hostname)
+          PY
+          )
+          # Grab first IPv4 (A) record
+          IPV4=$(getent ahostsv4 "$HOST" | awk '{print $1; exit}')
+          if [[ -z "$IPV4" ]]; then echo "No IPv4 A record for $HOST"; exit 1; fi
+          # Append hostaddr, preserving existing query params
+          SEP='?'; [[ "$DBURL" == *\?* ]] && SEP='&'
+          echo "POSTGRES_URL_NON_POOLING_DEV_IPV4=${DBURL}${SEP}hostaddr=${IPV4}" >> $GITHUB_ENV
+
+
       - name: Generate migration from dev DB (if any)
         run: |
           mkdir -p supabase/migrations
           ts=$(date -u +%Y%m%d%H%M%S)
           supabase db diff \
-            --db-url "$POSTGRES_URL_NON_POOLING_DEV" \
+            --db-url "$POSTGRES_URL_NON_POOLING_DEV_IPV4" \
             --schema public,auth,storage \
             -f "from-dev-${ts}" || echo "No diff"
 
