@@ -25,9 +25,6 @@ jobs:
       - uses: supabase/setup-cli@v1
         with: { version: latest }
 
-      # (Optional) sanity check connectivity
-      - run: psql "$POSTGRES_URL_POOLING_DEV" -c 'select current_database(), version();'
-
       - name: Generate migration from dev DB (if any)
         run: |
           mkdir -p supabase/migrations
