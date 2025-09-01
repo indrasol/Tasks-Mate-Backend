@@ -110,15 +110,16 @@ async def _next_attachment_id_retry(sb, tries=5):
     ts = int(datetime.datetime.utcnow().timestamp()) % 10000
     return f"A{ts:04d}"
 
-def _safe_storage_path(task_id: str, original: str, existing: set[str]) -> str:
-    # simple de-dupe: task_id/foo.pdf, task_id/foo (1).pdf, ...
+def _safe_storage_path(prefix: str, original: str, existing: set[str]) -> str:
+    """Ensure unique filename under given prefix path (e.g. org_id/task_id)."""
     base, dot, ext = original.rpartition(".")
-    if not base: base, ext, dot = original, "", ""
-    path = f"{task_id}/{original}"
+    if not base:
+        base, ext, dot = original, "", ""
+    path = f"{prefix}/{original}"
     i = 1
     while path in existing:
         candidate = f"{base} ({i}){dot}{ext}" if ext else f"{base} ({i})"
-        path = f"{task_id}/{candidate}"
+        path = f"{prefix}/{candidate}"
         i += 1
     return path
 
@@ -164,19 +165,33 @@ async def upload_and_create_task_attachment(
     sb = get_supabase_client()
     now = datetime.datetime.utcnow().replace(microsecond=0).isoformat()
 
-    # 1) Generate ID & storage path
-    # attachment_id = await _generate_sequential_attachment_id()
+    # 1) Generate ID & determine org prefix
     attachment_id = await _next_attachment_id_retry(sb)
-    # original_name = file.filename
+
+    # Fetch org_id via project (tasks table has project_id)
+    try:
+        proj_res = (
+            sb.from_("tasks")
+            .select("org_id,project_id")
+            .eq("task_id", task_id)
+            .single()
+            .execute()
+        )
+        org_id_val = proj_res.data.get("org_id") if proj_res and proj_res.data else "unknown"
+    except Exception:
+        org_id_val = "unknown"
+
+    prefix_path = f"{org_id_val}/{task_id}"
+
     original_name = _sanitize_name(title or file.filename or "file")
-    storage_path = f"{task_id}/{original_name}"
+    storage_path = f"{prefix_path}/{original_name}"
 
     # 2) Upload to storage
     # Note: use upsert=False to avoid overwriting; you can switch to True if desired
     try:
         # Ensure unique storage path under this task
-        existing = await _list_existing_paths(sb, task_id)
-        storage_path = _safe_storage_path(task_id, original_name, existing)
+        existing = await _list_existing_paths(sb, prefix_path)
+        storage_path = _safe_storage_path(prefix_path, original_name, existing)
 
         # Read the uploaded file as bytes to satisfy clients that don't accept SpooledTemporaryFile
         file_bytes = await file.read()
