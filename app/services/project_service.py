@@ -6,36 +6,40 @@ from app.models.schemas.project import ProjectCard
 
 import datetime
 from fastapi import HTTPException
+import random  # NEW: needed for random ID generation
 
-async def _generate_sequential_project_id() -> str:
-    """Generate the next sequential project ID in the format 'P00001'."""
+
+# ---------------------------------------------------------------------------
+# Project ID generation
+# ---------------------------------------------------------------------------
+
+
+async def _generate_random_project_id() -> str:
+    """Generate a random project ID with prefix 'P' and 6 digits, ensuring uniqueness."""
+
     supabase = get_supabase_client()
-    
-    def op():
-        return (
-            supabase
-            .from_("projects")
-            .select("project_id")
-            .order("project_id", desc=True)
-            .limit(1)
-            .execute()
-        )
+    digits = 5
 
-    res = await safe_supabase_operation(op, "Failed to fetch last project id")
-    last_id: str | None = None
-    if res and res.data:
-        last_id = res.data[0]["project_id"]
+    # Try a few times to avoid collisions (extremely unlikely)
+    for _ in range(10):
+        candidate = f"P{random.randint(0, 10**digits - 1):0{digits}d}"
 
-    last_num = 0
-    if last_id and isinstance(last_id, str) and last_id.startswith("P"):
-        try:
-            last_num = int(last_id[1:])
-        except ValueError:
-            last_num = 0
+        def op():
+            return (
+                supabase.from_("projects")
+                .select("project_id")
+                .eq("project_id", candidate)
+                .limit(1)
+                .execute()
+            )
 
-    next_num = last_num + 1
-    # Pad with at least 5 digits (P00001, P00010, etc.)
-    return f"P{next_num:05d}"
+        res = await safe_supabase_operation(op, "Failed to verify project id uniqueness")
+        if not res or not getattr(res, "data", None):
+            return candidate
+
+    # Fallback: use timestamp suffix (still reasonably unique)
+    ts = int(datetime.datetime.utcnow().timestamp()) % (10 ** digits)
+    return f"P{ts:0{digits}d}"
 
 
 async def get_project_card(project_id: str):
@@ -70,8 +74,8 @@ async def create_project(data: dict):
 
     await check_project_exists(data)
 
-    # Generate the next sequential project_id
-    project_id = await _generate_sequential_project_id()
+    # Generate a random project_id (P + 6 digits)
+    project_id = await _generate_random_project_id()
     data["project_id"] = project_id
 
     # Ensure we always have correct timestamps if not provided
