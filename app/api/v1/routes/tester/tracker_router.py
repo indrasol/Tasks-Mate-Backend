@@ -1,7 +1,7 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from app.api.v1.routes.organizations.org_rbac import org_rbac
-from app.api.v1.routes.projects.proj_rbac import project_rbac
+# from app.api.v1.routes.projects.proj_rbac import project_rbac
 from app.models.schemas.tracker import TrackerCreate, TrackerUpdate, TrackerInDB, TrackerCardView
 from app.services.tracker_service import (
     create_tracker,

@@ -3,9 +3,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app.models.schemas.task_history import TaskHistoryInDB
 from app.services.task_history_service import  get_task_history
 from app.services.auth_handler import verify_token
-from app.services.rbac import get_project_role
-from app.services.task_history_service import create_task_history
-from app.models.schemas.task_history import TaskHistoryCreate, TaskHistoryUpdate
+# from app.services.rbac import get_project_role
+# from app.services.task_history_service import create_task_history
+# from app.models.schemas.task_history import TaskHistoryCreate, TaskHistoryUpdate
 
 router = APIRouter()
 
@@ -18,11 +18,12 @@ async def read_history(
 ):
     return await get_task_history(task_id, title)
 
-# async def project_rbac(project_id: str, user=Depends(verify_token)):
-#     role = await get_project_role(user["id"], project_id)
-#     if not role:
-#         raise HTTPException(status_code=403, detail="Not a member of this project")
-#     return role
+async def project_rbac(project_id: str, user=Depends(verify_token)):
+    # role = await get_project_role(user["id"], project_id)
+    # if not role:
+    #     raise HTTPException(status_code=403, detail="Not a member of this project")
+    # return role
+    return None
 
 # @router.post("/", response_model=TaskHistoryInDB)
 # async def create_history(history: TaskHistoryCreate, project_id: str, user=Depends(verify_token), role=Depends(project_rbac)):
@@ -52,11 +53,11 @@ async def read_history(
 #     await delete_task_history(history_id, {"deleted_by": user["id"]})
 #     return {"ok": True}
 
-async def project_rbac(project_id: str, user=Depends(verify_token)):
-    role = await get_project_role(user["id"], project_id)
-    if not role:
-        raise HTTPException(status_code=403, detail="Not a member of this project")
-    return role
+# async def project_rbac(project_id: str, user=Depends(verify_token)):
+#     role = await get_project_role(user["id"], project_id)
+#     if not role:
+#         raise HTTPException(status_code=403, detail="Not a member of this project")
+#     return role
 
 # @router.post("", response_model=TaskHistoryInDB)
 # async def create_history(history: TaskHistoryCreate, project_id: str, user=Depends(verify_token), role=Depends(project_rbac)):

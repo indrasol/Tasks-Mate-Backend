@@ -1,6 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
-from app.api.v1.routes.projects.proj_rbac import project_rbac
+# from app.api.v1.routes.projects.proj_rbac import project_rbac
 from app.models.schemas.task import TaskCreate, TaskUpdate, TaskInDB, TaskCardView
 from app.services.task_service import create_task, get_task, update_task, delete_task, get_all_tasks, get_tasks_for_project, add_subtask, remove_subtask, add_dependency, remove_dependency
 from app.services.auth_handler import verify_token

@@ -36,7 +36,7 @@ async def create_project_route(project: ProjectCreate, user=Depends(verify_token
         raise HTTPException(status_code=400, detail="Missing org_id in request body")
     
     # Insert owner membership with designation if provided
-    owner_designation = data.dict().get("owner_designation", None)
+    owner_designation = data.get("owner_designation", None)
 
     # Persist the project
     result = await create_project(data)
