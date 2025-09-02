@@ -156,11 +156,11 @@ class BugWithRelations(BugInDB):
     watchers: List[BugWatcherInDB] = []
     related_bugs: List[Dict[str, Any]] = []
 
-class BugCommentWithUser(BugCommentInDB):
-    user_id: Dict[str, Any] = Field(..., description="User who created the comment")
+# class BugCommentWithUser(BugCommentInDB):
+#     user_id: Dict[str, Any] = Field(..., description="User who created the comment")
 
-class BugActivityLogWithUser(BugActivityLogInDB):
-    user_id: Dict[str, Any] = Field(..., description="User who performed the action")
+# class BugActivityLogWithUser(BugActivityLogInDB):
+#     user_id: Dict[str, Any] = Field(..., description="User who performed the action")
 
 # Filter models
 class BugFilter(BaseModel):

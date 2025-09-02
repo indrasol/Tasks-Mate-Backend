@@ -28,14 +28,13 @@ async def upload_bug_attachment(
         )
 
 @router.get("", response_model=List[BugAttachmentInDB])
-async def list_bug_attachments(
+async def list_attachments(
     bug_id: str,
     current_user: dict = Depends(verify_token)
 ):
     """List all attachments for a bug."""
     try:
-        result = await list_bug_attachments(bug_id)
-        return result.data if result.data else []
+        return await list_bug_attachments(bug_id)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

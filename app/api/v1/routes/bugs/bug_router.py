@@ -6,8 +6,7 @@ from app.services.auth_handler import verify_token
 
 from app.models.schemas.bug import (
     BugCreate, BugUpdate, BugInDB, BugWithRelations,
-    BugCommentCreate, BugCommentInDB, BugCommentWithUser,
-    BugAttachmentInDB, BugRelationCreate, BugRelationInDB,
+    BugCommentCreate, BugCommentInDB,     BugAttachmentInDB, BugRelationCreate, BugRelationInDB,
     BugStatusEnum, BugPriorityEnum, BugTypeEnum, BugSearchParams
 )
 from app.services.bug_service import (
@@ -218,7 +217,7 @@ async def add_comment_to_bug(
             detail=str(e)
         )
 
-@router.get("/{bug_id}/comments", response_model=List[BugCommentWithUser])
+@router.get("/{bug_id}/comments", response_model=List[BugCommentInDB])
 async def get_comments_for_bug(
     bug_id: str,
     current_user: dict = Depends(verify_token)    

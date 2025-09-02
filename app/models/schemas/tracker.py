@@ -63,3 +63,23 @@ class TrackerCardView(BaseModel):
     total_bugs: int = Field(0, description="Total number of bugs in the tracker", example=5)
     total_tasks: int = Field(0, description="Total number of tasks in the tracker", example=10)
     created_at: datetime = Field(..., description="Created date", example="2023-01-01T00:00:00Z")
+
+class TrackerStatsView(BaseModel):
+    """Simplified tracker representation for list view."""
+    tracker_id: str = Field(..., description="Tracker ID", example="TR-0001")
+    org_id: str = Field(..., description="Organization ID", example="org-1234")
+    project_id: str = Field(..., description="Project ID", example="P00001")
+    name: str = Field(..., description="Tracker name", example="Sprint 12 Testing")
+    project_name: str = Field(..., description="Project name", example="TasksMate Web")
+    creator_id: UUID = Field(..., description="Creator user ID", example="a1b2c3d4-5678-1234-9abc-def012345678")
+    creator_name: str = Field(..., description="Creator name", example="John Doe")
+    status: TaskStatusEnum = Field(..., description="Status", example=TaskStatusEnum.IN_PROGRESS)
+    priority: PriorityEnum = Field(..., description="Priority", example=PriorityEnum.MEDIUM)
+    total_bugs: int = Field(0, description="Total number of bugs in the tracker", example=5)
+    low_priority_bugs: int = Field(0, description="Total number of bugs in the tracker", example=5)
+    medium_priority_bugs: int = Field(0, description="Total number of bugs in the tracker", example=5)
+    high_priority_bugs: int = Field(0, description="Total number of bugs in the tracker", example=5)
+    total_bugs: int = Field(0, description="Total number of bugs in the tracker", example=5)
+    total_tasks: int = Field(0, description="Total number of tasks in the tracker", example=10)
+    progress_percent: int = Field(0, description="Total number of tasks in the tracker", example=10)
+    created_at: datetime = Field(..., description="Created date", example="2023-01-01T00:00:00Z")

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from app.services.auth_handler import verify_token
 from app.services.bug_service import create_bug_comment, get_bug_comments, update_bug_comment
-from app.models.schemas.bug import BugCommentCreate, BugCommentUpdate, BugCommentInDB, BugCommentWithUser
+from app.models.schemas.bug import BugCommentCreate, BugCommentUpdate, BugCommentInDB
 
 router = APIRouter(prefix="/comments", tags=["bug_comments"])
 
@@ -27,7 +27,7 @@ async def add_comment_to_bug(
             detail=str(e)
         )
 
-@router.get("", response_model=List[BugCommentWithUser])
+@router.get("", response_model=List[BugCommentInDB])
 async def list_bug_comments(
     bug_id: str,
     current_user: dict = Depends(verify_token)

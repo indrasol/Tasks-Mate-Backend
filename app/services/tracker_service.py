@@ -50,6 +50,13 @@ async def get_tracker(tracker_id: str):
         return supabase.from_("test_trackers").select("*").eq("tracker_id", tracker_id).single().execute()
     return await safe_supabase_operation(op, "Failed to fetch test tracker")
 
+async def get_tracker_stats(tracker_id: str):
+    """Get a specific test tracker by ID."""
+    supabase = get_supabase_client()
+    def op():
+        return supabase.from_("test_tracker_stats_view").select("*").eq("tracker_id", tracker_id).single().execute()
+    return await safe_supabase_operation(op, "Failed to fetch test tracker")
+
 async def update_tracker(tracker_id: str, data: dict):
     """Update an existing test tracker."""
     # Ensure updated_at is set
@@ -96,7 +103,7 @@ async def get_trackers_for_org(
     """Get all test trackers for an organization with optional filtering."""
     supabase = get_supabase_client()
     
-    query = supabase.from_("test_trackers").select("*").eq("org_id", org_id).is_("deleted_at", "null")
+    query = supabase.from_("test_tracker_card_view").select("*").eq("org_id", org_id).is_("deleted_at", "null")
     
     # Apply filters if provided
     if status:
