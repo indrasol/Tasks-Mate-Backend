@@ -43,23 +43,24 @@ def _guess_content_type(filename: str, fallback: str = "application/octet-stream
 	guessed, _ = mimetypes.guess_type(filename)
 	return guessed or fallback
 
-def _safe_storage_path(project_id: str, original: str, existing: Optional[set[str]]) -> str:
-	# Be defensive in case caller passes None
+def _safe_storage_path(prefix: str, original: str, existing: Optional[set[str]]) -> str:
+	"""Return a unique storage path under the given prefix (e.g. org_id/project_id)."""
 	existing = existing or set()
 	base, dot, ext = original.rpartition(".")
 	if not base:
 		base, ext, dot = original, "", ""
-	path = f"{project_id}/{original}"
+
+	path = f"{prefix}/{original}"
 	i = 1
 	while path in existing:
 		candidate = f"{base}_{i}{dot}{ext}" if ext else f"{base} ({i})"
-		path = f"{project_id}/{candidate}"
+		path = f"{prefix}/{candidate}"
 		i += 1
 	return path
 
-async def _list_existing_paths(sb, project_id: str) -> set[str]:
+async def _list_existing_paths(sb, prefix: str) -> set[str]:
 	try:
-		listing = sb.storage.from_(RESOURCES_BUCKET).list(path=project_id)
+		listing = sb.storage.from_(RESOURCES_BUCKET).list(path=prefix)
 
 		# Coerce to a list of item dicts
 		if isinstance(listing, dict):
@@ -78,7 +79,7 @@ async def _list_existing_paths(sb, project_id: str) -> set[str]:
 			if name:
 				names.append(str(name).lstrip("/"))
 
-		return {f"{project_id}/{n}" for n in names if n}
+		return {f"{prefix}/{n}" for n in names if n}
 	except Exception as e:
 		return set()
 
@@ -211,19 +212,33 @@ async def upload_and_create_project_resource(
     sb = get_supabase_client()
     now = datetime.datetime.utcnow().replace(microsecond=0).isoformat()
 
-    # 1) Generate ID & storage path
-    # attachment_id = await _generate_sequential_attachment_id()
-    # attachment_id = await _next_attachment_id_retry(sb)
-    # original_name = file.filename
+    # 1) Determine org_id for prefix path
+    try:
+        proj_row = (
+            sb.from_("projects")
+            .select("org_id")
+            .eq("project_id", project_id)
+            .single()
+            .execute()
+        )
+        org_id_val = (
+            proj_row.data.get("org_id") if proj_row and proj_row.data else "unknown"
+        )
+    except Exception:
+        org_id_val = "unknown"
+
+    prefix_path = f"{org_id_val}/{project_id}"
+
+    # original filename sanitized
     original_name = _sanitize_name(title or file.filename or "file")
-    storage_path = f"{project_id}/{original_name}"
+    storage_path = f"{prefix_path}/{original_name}"
 
     # 2) Upload to storage
     # Note: use upsert=False to avoid overwriting; you can switch to True if desired
     try:
         # Ensure unique storage path under this task
-        existing = await _list_existing_paths(sb, project_id)
-        storage_path = _safe_storage_path(project_id, original_name, existing)
+        existing = await _list_existing_paths(sb, prefix_path)
+        storage_path = _safe_storage_path(prefix_path, original_name, existing)
 
         # Read the uploaded file as bytes to satisfy clients that don't accept SpooledTemporaryFile
         file_bytes = await file.read()
