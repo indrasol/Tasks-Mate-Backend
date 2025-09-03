@@ -158,6 +158,18 @@ async def accept_invite(invite_id: str, user=Depends(verify_token)):
     
     return result.data[0]
 
+@router.delete("/{invite_id}/reject")
+async def reject_invite(invite_id: str, user=Depends(verify_token)):
+    # if role != "admin":
+    #     raise HTTPException(status_code=403, detail="Not authorized")
+    invite = await get_organization_invite(invite_id)
+    if not invite.data:
+        raise HTTPException(status_code=404, detail="Not found")
+    if invite.data["email"] != user["email"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    await delete_organization_invite(invite_id)
+    return {"ok": True}
+
 @router.delete("/{invite_id}")
 async def delete_invite(invite_id: str, user=Depends(verify_token), role=Depends(org_rbac)):
     # if role != "admin":

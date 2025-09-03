@@ -44,7 +44,7 @@ async def update_organization_member(user_id: str, org_id: str, data: dict):
         return supabase.from_("organization_members").update(data).eq("user_id", user_id).eq("org_id", org_id).execute()
     return await safe_supabase_operation(op, "Failed to update organization member")
 
-async def delete_organization_member(user_id: str, org_id: str):
+async def delete_organization_member(user_id: str, org_id: str, data:dict):
     supabase = get_supabase_client()
     def op():
         # data = inject_audit_fields(data,None,"delete")
