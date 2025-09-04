@@ -55,6 +55,10 @@ async def update_task_route(task_id: str, task: TaskUpdate, user=Depends(verify_
     # if role not in ["owner", "admin"]:
     #     raise HTTPException(status_code=403, detail="Not authorized")
     result = await update_task(task_id, {**task.dict(exclude_unset=True), "updated_by": user["username"]}, user["username"])
+
+    if task.assignee:
+        await send_task_assignment_email(result.data[0])
+    
     return result.data[0]
 
 @router.delete("/{task_id}")

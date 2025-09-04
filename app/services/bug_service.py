@@ -9,7 +9,7 @@ from app.models.schemas.bug import (
     BugSearchParams
 )
 
-from app.models.enums import BugStatusEnum, BugPriorityEnum, BugTypeEnum
+from app.models.enums import BugStatusEnum
 
 
 async def _generate_sequential_bug_id() -> str:
@@ -42,6 +42,22 @@ async def _generate_sequential_bug_log_id() -> str:
     # Fallback: time-based suffix to reduce collision risk
     ts = int(datetime.datetime.utcnow().timestamp()) % (10**digits)
     return f"L{ts:0{digits}d}"
+
+
+async def _generate_sequential_bug_comment_id() -> str:
+    """Generate a random task ID with prefix 'T' and 6 digits, ensuring uniqueness."""
+    supabase = get_supabase_client()
+    digits = 8
+    for _ in range(10):
+        candidate = f"C{random.randint(0, 10**digits - 1):0{digits}d}"
+        def op():
+            return supabase.from_("bug_comments").select("id").eq("id", candidate).limit(1).execute()
+        res = await safe_supabase_operation(op, "Failed to verify task id uniqueness")
+        if not res or not getattr(res, "data", None):
+            return candidate
+    # Fallback: time-based suffix to reduce collision risk
+    ts = int(datetime.datetime.utcnow().timestamp()) % (10**digits)
+    return f"C{ts:0{digits}d}"
 
 # Bug CRUD Operations
 async def create_bug(bug_data: BugCreate, username: str) -> Dict[str, Any]:
@@ -180,7 +196,9 @@ async def create_bug_comment(bug_id: str, comment_data: BugCommentCreate, userna
     supabase = get_supabase_client()
     
     comment_dict = comment_data.model_dump()
+    id = await _generate_sequential_bug_comment_id()
     comment_dict.update({
+        "id": id,
         "bug_id": bug_id,
         "user_id": username,
         "created_at": datetime.utcnow().isoformat(),
@@ -234,7 +252,7 @@ async def get_bug_comments(bug_id: str) -> List[Dict[str, Any]]:
     supabase = get_supabase_client()
     
     def op():
-        return supabase.from_("bug_comments_with_user") \
+        return supabase.from_("bug_comments") \
                      .select("*") \
                      .eq("bug_id", bug_id) \
                      .order("created_at") \
