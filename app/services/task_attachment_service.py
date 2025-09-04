@@ -49,7 +49,7 @@ async def _enforce_task_limit(task_id: str):
             .select("attachment_id", count="exact")
             .eq("task_id", task_id)
             .is_("deleted_at", None)
-            .is_("is_inline", None)
+            .or_("is_inline.is.false,is_inline.is.null")
             .execute()
         )
     res = await safe_supabase_operation(op, "Failed to count attachments")
@@ -160,7 +160,8 @@ async def upload_and_create_task_attachment(
     - Create DB row with the public URL
     - Log 'attachment_created'
     """
-    await _enforce_task_limit(task_id)
+    if not is_inline:
+        await _enforce_task_limit(task_id)
 
     sb = get_supabase_client()
     now = datetime.datetime.utcnow().replace(microsecond=0).isoformat()
