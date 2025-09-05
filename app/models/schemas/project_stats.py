@@ -10,6 +10,7 @@ class ProjectStatsBase(BaseModel):
     team_members: int = Field(..., description="Number of members in the project", example=5)
     days_left: int = Field(..., description="Days remaining until end_date", example=30)
     duration_days: Optional[int] = Field(None, description="Project duration in days", example=120)
+    bugs_total: Optional[int] = Field(None, description="Total number of bugs in the project", example=5)
 
 class ProjectStatsInDB(ProjectStatsBase):
     class Config:

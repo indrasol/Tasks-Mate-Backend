@@ -19,8 +19,8 @@ async def _generate_sequential_comment_id() -> str:
 async def create_task_comment(data: dict):
     """Create a new comment or reply."""
     # Ensure we always have correct timestamps if not provided
-    if "created_at" not in data:
-        data["created_at"] = datetime.datetime.utcnow().isoformat()
+    if not data.get("created_at"):
+        data["created_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
     # Generate comment_id if missing
     if not data.get("comment_id"):
@@ -61,8 +61,8 @@ async def get_task_comment(comment_id: str):
 
 async def update_task_comment(comment_id: str, data: dict):
     # Stamp updated_at automatically if not provided
-    if "updated_at" not in data:
-        data["updated_at"] = datetime.datetime.utcnow().isoformat()
+    if not data.get("updated_at"):
+        data["updated_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
     supabase = get_supabase_client()
     def op():
         return supabase.from_("task_comments").update(data).eq("comment_id", comment_id).execute()
