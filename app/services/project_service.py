@@ -102,15 +102,83 @@ async def get_project(project_id: str):
         return supabase.from_("projects").select("*").eq("project_id", project_id).single().execute()
     return await safe_supabase_operation(op, "Failed to fetch project")
 
-async def update_project(project_id: str, data: dict):
+async def _update_project_name_references(project_id: str, new_name: str):
+    """
+    Update project name references in linked tasks and trackers.
+    
+    This function is automatically called when a project name is updated and ensures
+    that all linked entities (currently test_trackers) are kept in sync with the new name.
+    
+    Args:
+        project_id: The project's unique identifier
+        new_name: The updated project name
+        
+    Returns:
+        None
+    """
     supabase = get_supabase_client()
+    
+    # Note: Tasks table doesn't store project_name, only project_id which doesn't change
+    # So we don't need to update tasks when project name changes
+    
+    # Update project name in test_trackers table
+    try:
+        def tracker_op():
+            return supabase.from_("test_trackers") \
+                .update({"project_name": new_name}) \
+                .eq("project_id", project_id) \
+                .execute()
+        result = await safe_supabase_operation(tracker_op, "Failed to update project name in trackers")
+        
+        # Log how many trackers were updated
+        count = len(result.data) if result and hasattr(result, 'data') else 0
+        print(f"Updated project name to '{new_name}' in {count} test trackers for project {project_id}")
+        
+    except Exception as e:
+        print(f"Error updating project name in trackers: {str(e)}")
+
+async def update_project(project_id: str, data: dict):
+    """
+    Update a project and automatically cascade the name change to linked entities.
+    
+    When the project name is updated, this function automatically updates all references
+    to the project name in related tables (like test_trackers) to maintain data consistency.
+    
+    Args:
+        project_id: The project's unique identifier
+        data: Dictionary of project fields to update
+        
+    Returns:
+        The Supabase response from the update operation
+    """
+    supabase = get_supabase_client()
+    
+    # Check if project name is being updated
+    update_name = False
+    if "name" in data:
+        # Get current project to compare
+        current_project = await get_project(project_id)
+        if current_project and current_project.data:
+            if current_project.data.get("name") != data["name"]:
+                update_name = True
+                print(f"Project name change detected: '{current_project.data.get('name')}' → '{data['name']}'")
+    
     # Ensure date/datetime values are JSON serializable
     for k, v in list(data.items()):
         if isinstance(v, (datetime.date, datetime.datetime)):
             data[k] = v.isoformat()
+    
+    # Update the project
     def op():
         return supabase.from_("projects").update(data).eq("project_id", project_id).execute()
-    return await safe_supabase_operation(op, "Failed to update project")
+    
+    result = await safe_supabase_operation(op, "Failed to update project")
+    
+    # If project name was updated, update related entities
+    if update_name and result and result.data:
+        await _update_project_name_references(project_id, data["name"])
+    
+    return result
 
 async def delete_project(project_id: str):
     supabase = get_supabase_client()

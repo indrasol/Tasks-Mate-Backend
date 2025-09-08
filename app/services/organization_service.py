@@ -68,13 +68,21 @@ def _validate_data(data: dict, required_fields: Optional[List[str]] = None):
 
 async def _organization_exists(org_id: str) -> bool:
     supabase = get_supabase_client()
-    result = supabase.from_("organizations").select("org_id").eq("org_id", org_id).execute()
+    result = supabase.from_("organizations")\
+        .select("org_id")\
+        .eq("org_id", org_id)\
+        .eq("is_deleted", False)\
+        .execute()
     return bool(result.data)
 
 
 async def _organization_name_exists(name: str, username:str, email:str) -> bool:
     supabase = get_supabase_client()
-    result = supabase.from_("organizations").select("org_id").eq("name", name).execute()
+    result = supabase.from_("organizations")\
+        .select("org_id")\
+        .eq("name", name)\
+        .eq("is_deleted", False)\
+        .execute()
 
     # loop through result.data and check if any org_id matches the membership
     for org in result.data:
@@ -122,7 +130,10 @@ async def create_organization(data: dict):
         if attempts > 5:
             raise RuntimeError("Unable to generate a unique organization id after multiple attempts")
         org_id = await _generate_sequential_org_id()
+    
+    # Set organization ID and email
     data["org_id"] = org_id
+    data["email"] = created_by_email  # Set the organization email to the creator's email
 
     # 1. Prepare designation list coming from client (may be missing)
     incoming_designations: List[str] = []
@@ -224,24 +235,31 @@ async def delete_organization(org_id: str, metadata: Optional[dict] = None):
 
     def op():
         try:
-            # Step 1: Fetch existing org record
+            # Prepare update data for soft deletion
+            delete_data = {
+                "is_deleted": True,
+                "deleted_by": metadata.get("deleted_by", "unknown"),
+                "deleted_at": datetime.datetime.utcnow().isoformat()
+            }
+            
+            # Add delete reason if provided
+            if metadata and metadata.get("delete_reason"):
+                delete_data["delete_reason"] = metadata["delete_reason"]
+            
+            # Step 1: Fetch existing org record before updating
             response = supabase.table("organizations").select("*").eq("org_id", org_id).single().execute()
             org_data = response.data  # this will raise if query fails
 
             if not org_data:
                 raise Exception(f"Organization '{org_id}' not found.")
-
-            # Step 2: Add delete metadata
-            if metadata and metadata.get("delete_reason"):
-                org_data["delete_reason"] = metadata["delete_reason"]
-            org_data["deleted_by"] = metadata.get("deleted_by", "unknown")
-            org_data["deleted_at"] = datetime.datetime.utcnow().isoformat()
-
-            # Step 3: Insert into organizations_history
-            supabase.table("organizations_history").insert(org_data).execute()
-
-            # Step 4: Delete from organizations
-            supabase.table("organizations").delete().eq("org_id", org_id).execute()
+            
+            # Step 2: Update the organization record (soft delete)
+            update_response = supabase.table("organizations").update(delete_data).eq("org_id", org_id).execute()
+            
+            # Step 3: Insert into organizations_history for audit trail
+            # Combine original data with deletion metadata
+            history_data = {**org_data, **delete_data}
+            supabase.table("organizations_history").insert(history_data).execute()
 
             return {"status": "deleted", "org_id": org_id}
 
@@ -249,7 +267,7 @@ async def delete_organization(org_id: str, metadata: Optional[dict] = None):
             raise Exception(f"Supabase operation failed: {str(e)}")
 
     # Run safely
-    return await safe_supabase_operation(op, "Failed to delete organization")
+    return await safe_supabase_operation(op, "Failed to soft delete organization")
 
 
 async def get_organizations_for_user(user_id: str, username: str, email: Optional[str] = None, org_id: Optional[str] = None) -> List[dict]:
@@ -300,14 +318,22 @@ async def get_organizations_for_user(user_id: str, username: str, email: Optiona
 
     # Fetch organization info with project and member counts from the new view
     def orgs_op():
-        return supabase.from_("organization_stats_view").select("org_id, org_name, org_description, created_by, created_at, project_count, member_count").in_("org_id", list(all_org_ids)).execute()
+        return supabase.from_("organization_stats_view")\
+            .select("org_id, org_name, org_description, created_by, created_at, project_count, member_count")\
+            .in_("org_id", list(all_org_ids))\
+            .eq("is_deleted", False)\
+            .execute()
 
     orgs_result = await safe_supabase_operation(orgs_op, "Failed to fetch organizations with stats")
     
     # If the view query fails, fall back to basic organization info
     if not orgs_result.data:
         def fallback_op():
-            return supabase.from_("organizations").select("org_id, name, created_by, created_at, description").in_("org_id", list(all_org_ids)).execute()
+            return supabase.from_("organizations")\
+                .select("org_id, name, created_by, created_at, description")\
+                .in_("org_id", list(all_org_ids))\
+                .eq("is_deleted", False)\
+                .execute()
         
         orgs_result = await safe_supabase_operation(fallback_op, "Failed to fetch organizations")
     
