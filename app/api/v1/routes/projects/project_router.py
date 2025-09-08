@@ -6,7 +6,7 @@ from app.models.enums import DesignationEnum, RoleEnum
 from app.models.schemas.project import ProjectCard, ProjectCreate, ProjectUpdate, ProjectInDB
 from app.services.project_service import create_project, get_project, update_project, delete_project, get_projects_for_user, get_project_card, get_all_org_projects
 from app.services.auth_handler import verify_token
-from app.services.project_member_service import create_project_member
+from app.services.project_member_service import create_project_member, update_project_member
 from app.services.role_service import get_role_by_name
 from app.services.utils import inject_audit_fields
 from app.services.user_service import get_user_details_by_id
@@ -205,19 +205,22 @@ async def update_project_route(project_id: str, project: ProjectUpdate, user=Dep
         
         if member_query.data:
             owner_record = member_query.data[0]
-            # Update designation
-            supabase.from_("project_members").update({"designation": owner_designation}).eq("id", owner_record["id"]).execute()
+            # Use service layer to properly resolve designation
+            await update_project_member(
+                owner_record["user_id"], 
+                project_id, 
+                {"designation": owner_designation, "updated_by": user["username"]}
+            )
     
     # If team member designations provided, update them
     if team_member_designations:
         for member_designation in team_member_designations:
-            # Get project member record
-            member_query = supabase.from_("project_members").select("*").eq("project_id", project_id).eq("user_id", member_designation.id).execute()
-            
-            if member_query.data:
-                member_record = member_query.data[0]
-                # Update designation
-                supabase.from_("project_members").update({"designation": member_designation.designation}).eq("id", member_record["id"]).execute()
+            # Use service layer to properly resolve designation
+            await update_project_member(
+                member_designation.id, 
+                project_id, 
+                {"designation": member_designation.designation, "updated_by": user["username"]}
+            )
     
     return result.data[0]
 
