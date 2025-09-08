@@ -13,19 +13,50 @@ ALGORITHM = "HS256"
 
 async def verify_token(authorization: str = Header(None), is_registration: bool = False):
     try:
-        if not authorization or " " not in authorization:
+        # if not authorization or " " not in authorization:
+        #     raise HTTPException(status_code=401, detail="Malformed authorization header")
+
+        # # Extract and validate the scheme and token
+        # try:
+        #     scheme, token = authorization.strip().split(" ", 1)
+        # except ValueError:
+        #     raise HTTPException(status_code=401, detail="Invalid authorization format")
+
+        # if scheme.lower() != "bearer":
+        #     raise HTTPException(status_code=401, detail="Invalid authentication scheme")
+
+        # if not isinstance(token, str) or not token:
+        #     raise HTTPException(status_code=401, detail="Token must be a non-empty string")
+
+        if not authorization:
+            raise HTTPException(status_code=401, detail="Missing authorization header")
+
+        # log_info(f"Authorization header raw: {authorization!r}")
+
+        # Strip spaces, split by spaces
+        parts = authorization.strip().split(" ")
+
+        if not parts:
             raise HTTPException(status_code=401, detail="Malformed authorization header")
 
-        # Extract and validate the scheme and token
-        try:
-            scheme, token = authorization.strip().split(" ", 1)
-        except ValueError:
-            raise HTTPException(status_code=401, detail="Invalid authorization format")
-
-        if scheme.lower() != "bearer":
+        # Check first part is Bearer
+        if parts[0].lower() != "bearer":
             raise HTTPException(status_code=401, detail="Invalid authentication scheme")
 
-        if not isinstance(token, str) or not token:
+        # Now extract the token, but if token starts with Bearer again, keep stripping
+        token_parts = parts[1:]  # everything after first "Bearer"
+
+        # Flatten token_parts into a single string (in case token contains spaces)
+        token_str = " ".join(token_parts).strip()
+
+        # Strip multiple 'Bearer ' prefixes in token string
+        while token_str.lower().startswith("bearer "):
+            log_info("Detected duplicate 'Bearer' prefix inside token, stripping it.")
+            token_str = token_str[7:].strip()  # Remove leading 'Bearer '
+
+        token = token_str
+
+        if not token:
             raise HTTPException(status_code=401, detail="Token must be a non-empty string")
         
         if not isinstance(SUPABASE_SECRET_KEY, str):

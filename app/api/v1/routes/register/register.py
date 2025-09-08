@@ -35,7 +35,7 @@ async def registration_verify_token(authorization: str = Header(None)) -> Dict:
             raise HTTPException(status_code=401, detail="Missing token")
 
         # Log and validate authorization header
-        log_info(f"Authorization header received: {authorization} (type: {type(authorization)})")
+        # log_info(f"Authorization header received: {authorization} (type: {type(authorization)})")
         
         try:
             scheme, token = authorization.strip().split(" ")

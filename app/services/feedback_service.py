@@ -15,13 +15,19 @@ async def get_feedback(user: dict):
     supabase = get_supabase_client()
     def op():
         return supabase.from_("feedback").select("*").execute()
-    return await safe_supabase_operation(op, "Failed to fetch feedback")
+    response = await safe_supabase_operation(op, "Failed to fetch feedback")
+    # response probably looks like: {"data": [...], "error": None, ...}
+
+    return response.data if response and response.data else []
 
 async def get_feedback_by_user(user_id: str):
     supabase = get_supabase_client()
     def op(user_id: str):
         return supabase.from_("feedback").select("*").eq("submitted_by", user_id).execute()
-    return await safe_supabase_operation(op, "Failed to fetch feedback")
+    response = await safe_supabase_operation(op, "Failed to fetch feedback")
+    # response probably looks like: {"data": [...], "error": None, ...}
+
+    return response.data if response and response.data else []
 
 async def delete_feedback(feedback_id: str):
     supabase = get_supabase_client()
