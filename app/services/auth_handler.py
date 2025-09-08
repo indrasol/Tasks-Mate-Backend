@@ -96,6 +96,33 @@ async def verify_token(authorization: str = Header(None), is_registration: bool 
         raise HTTPException(status_code=500, detail="Authentication failed")
 
 
+# ---------------------------------------------------------------------------
+# Helper dependency wrappers
+# ---------------------------------------------------------------------------
+
+
+async def get_current_user(authorization: str = Header(None)):
+    """FastAPI dependency that returns the current authenticated user.
+
+    This is a thin wrapper around ``verify_token`` so that other modules can
+    depend on a more semantically-named function while keeping a single source
+    of truth for token verification logic.
+
+    Args:
+        authorization: Contents of the ``Authorization`` header supplied by
+            FastAPI. Injected automatically when used as a dependency.
+
+    Returns:
+        A dictionary with at minimum an ``id`` key identifying the user.
+    """
+    return await verify_token(authorization)
+
+
+async def get_current_user_id(authorization: str = Header(None)) -> str:
+    """Convenience dependency that returns only the id of the current user."""
+    user = await get_current_user(authorization)
+    return user["id"]
+
 
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 async def verify_api_key(api_key: str = Depends(api_key_header)):
