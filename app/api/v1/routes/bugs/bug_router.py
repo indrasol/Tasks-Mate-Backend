@@ -190,80 +190,80 @@ async def delete_bug_by_id(
             detail=str(e)
         )
 
-@router.post("/{bug_id}/comments", response_model=BugCommentInDB, status_code=status.HTTP_201_CREATED)
-async def add_comment_to_bug(
-    bug_id: str,
-    comment: BugCommentCreate,
-    current_user: dict = Depends(verify_token)    
-):
-    """Add a comment to a bug."""
-    if not current_user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated"
-        )
+# @router.post("/{bug_id}/comments", response_model=BugCommentInDB, status_code=status.HTTP_201_CREATED)
+# async def add_comment_to_bug(
+#     bug_id: str,
+#     comment: BugCommentCreate,
+#     current_user: dict = Depends(verify_token)    
+# ):
+#     """Add a comment to a bug."""
+#     if not current_user:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Not authenticated"
+#         )
     
-    try:
-        result = await create_bug_comment(bug_id, comment, current_user["username"])
-        if not result or not result.data:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to add comment"
-            )
-        return result.data[0] if isinstance(result.data, list) else result.data
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+#     try:
+#         result = await create_bug_comment(bug_id, comment, current_user["username"])
+#         if not result or not result.data:
+#             raise HTTPException(
+#                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#                 detail="Failed to add comment"
+#             )
+#         return result.data[0] if isinstance(result.data, list) else result.data
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail=str(e)
+#         )
 
-@router.get("/{bug_id}/comments", response_model=List[BugCommentInDB])
-async def get_comments_for_bug(
-    bug_id: str,
-    current_user: dict = Depends(verify_token)    
-):
-    """Get all comments for a bug."""
-    if not current_user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated"
-        )
+# @router.get("/{bug_id}/comments", response_model=List[BugCommentInDB])
+# async def get_comments_for_bug(
+#     bug_id: str,
+#     current_user: dict = Depends(verify_token)    
+# ):
+#     """Get all comments for a bug."""
+#     if not current_user:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Not authenticated"
+#         )
     
-    try:
-        comments = await get_bug_comments(bug_id)
-        return comments
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+#     try:
+#         comments = await get_bug_comments(bug_id)
+#         return comments
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail=str(e)
+#         )
 
-@router.post("/{bug_id}/attachments", response_model=BugAttachmentInDB, status_code=status.HTTP_201_CREATED)
-async def upload_bug_attachment(
-    bug_id: str,
-    file: UploadFile = File(...),
-    current_user: dict = Depends(verify_token)    
-):
-    """Upload an attachment for a bug."""
-    if not current_user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated"
-        )
+# @router.post("/{bug_id}/attachments", response_model=BugAttachmentInDB, status_code=status.HTTP_201_CREATED)
+# async def upload_bug_attachment(
+#     bug_id: str,
+#     file: UploadFile = File(...),
+#     current_user: dict = Depends(verify_token)    
+# ):
+#     """Upload an attachment for a bug."""
+#     if not current_user:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Not authenticated"
+#         )
     
-    try:
-        result = await create_bug_attachment(bug_id, file, current_user["username"])
-        if not result or not result.data:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to upload attachment"
-            )
-        return result.data[0] if isinstance(result.data, list) else result.data
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+#     try:
+#         result = await create_bug_attachment(bug_id, file, current_user["username"])
+#         if not result or not result.data:
+#             raise HTTPException(
+#                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#                 detail="Failed to upload attachment"
+#             )
+#         return result.data[0] if isinstance(result.data, list) else result.data
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail=str(e)
+#         )
 
 @router.post("/{bug_id}/relations", response_model=BugRelationInDB, status_code=status.HTTP_201_CREATED)
 async def add_relation_to_bug(
