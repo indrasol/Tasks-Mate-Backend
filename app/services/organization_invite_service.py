@@ -58,6 +58,14 @@ async def create_organization_invite(data: dict):
     supabase = get_supabase_client()
     data["id"] = await _generate_sequential_org_invite_id()
 
+    # Normalize designation to valid slug if provided
+    if data.get("designation"):
+        from app.services.organization_member_service import _resolve_designation_slug
+        resolved = await _resolve_designation_slug(data["designation"])
+        if not resolved:
+            raise HTTPException(400, detail="Invalid designation provided")
+        data["designation"] = resolved
+
     # A. already a member?
     await check_organization_member_exists(data)
 
@@ -75,6 +83,14 @@ async def get_organization_invite(invite_id: str):
     return await safe_supabase_operation(op, "Failed to fetch organization invite")
 
 async def update_organization_invite(invite_id: str, data: dict):
+    # Normalize designation to valid slug if provided
+    if data.get("designation"):
+        from app.services.organization_member_service import _resolve_designation_slug
+        resolved = await _resolve_designation_slug(data["designation"])
+        if not resolved:
+            raise HTTPException(400, detail="Invalid designation provided")
+        data["designation"] = resolved
+    
     supabase = get_supabase_client()
     def op():
         return supabase.from_("organization_invites").update(data).eq("id", invite_id).execute()
@@ -95,10 +111,30 @@ async def get_invites_for_org(org_id, search=None, limit=20, offset=0, sort_by="
         query = query.eq("email", email)
     query = query.order(sort_by, desc=(sort_order == "desc"))
     result = query.range(offset, offset + limit - 1).execute()
-    return result.data
+    
+    # Convert designation slugs back to display names for frontend
+    invites = result.data or []
+    for invite in invites:
+        if invite.get("designation"):
+            from app.services.organization_member_service import _resolve_slug_to_name
+            display_name = await _resolve_slug_to_name(invite["designation"])
+            if display_name:
+                invite["designation"] = display_name
+    
+    return invites
 
 async def get_invites_for_user(email:str):
     supabase = get_supabase_client()
     query = supabase.from_("organization_invites").select("*").eq("email", email)   
     result = query.execute()
-    return result.data
+    
+    # Convert designation slugs back to display names for frontend
+    invites = result.data or []
+    for invite in invites:
+        if invite.get("designation"):
+            from app.services.organization_member_service import _resolve_slug_to_name
+            display_name = await _resolve_slug_to_name(invite["designation"])
+            if display_name:
+                invite["designation"] = display_name
+    
+    return invites
