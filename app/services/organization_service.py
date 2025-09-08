@@ -325,7 +325,7 @@ async def get_organizations_for_user(user_id: str, username: str, email: Optiona
         return supabase.from_("organization_stats_view")\
             .select("org_id, org_name, org_description, created_by, created_at, project_count, member_count")\
             .in_("org_id", list(all_org_ids))\
-            .eq("is_deleted", False)\
+            # .eq("is_deleted", False)\
             .execute()
 
     orgs_result = await safe_supabase_operation(orgs_op, "Failed to fetch organizations with stats")
