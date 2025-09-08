@@ -138,16 +138,20 @@ async def create_organization(data: dict):
     # 1. Prepare designation list coming from client (may be missing)
     incoming_designations: List[str] = []
 
-    # Support single 'designation' field
+    # Support single 'designation' field - resolve to slug first
     single_designation = data.pop("designation", None)
     if single_designation and isinstance(single_designation, str):
-        incoming_designations.append(single_designation.strip())
+        # Import the resolver from organization_member_service
+        from app.services.organization_member_service import _resolve_designation_slug
+        resolved_slug = await _resolve_designation_slug(single_designation.strip())
+        if resolved_slug:
+            incoming_designations.append(resolved_slug)
 
     # Import here to avoid circular dependencies
     from app.services.designation_service import get_designations
-    # 2. Fetch global defaults
+    # 2. Fetch global defaults (get slugs, not names)
     default_res = await get_designations(org_id=None)
-    default_designations = [row["name"] for row in (default_res.data or [])]
+    default_designations = [row["slug"] for row in (default_res.data or []) if row.get("slug")]
 
     # 3. Merge & deduplicate
     all_designations = list({*default_designations, *incoming_designations})
