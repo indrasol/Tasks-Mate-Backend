@@ -22,6 +22,7 @@ from app.api.v1.routes.dashboard.dashboard_router import router as dashboard_rou
 from app.api.v1.routes.scratchpad.scratchpad_router import router as scratchpad_router
 from app.api.v1.routes.tester.tracker_router import router as tracker_router
 from app.api.v1.routes.feedback.feedback_router import router as feedback_router
+from app.api.v1.routes.users.avatar_router import router as avatar_router
 
 
 router = APIRouter()
@@ -48,3 +49,4 @@ router.include_router(dashboard_router, prefix="/dashboard", tags=["Dashboard"])
 router.include_router(scratchpad_router, prefix="/scratchpads", tags=["Scratchpads"])
 router.include_router(tracker_router, prefix="/trackers", tags=["Trackers"])
 router.include_router(feedback_router, prefix="/feedback", tags=["Feedback"])
+router.include_router(avatar_router, prefix="/users/avatar", tags=["User Avatar"])
