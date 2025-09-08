@@ -52,8 +52,22 @@ async def get_designations(org_id: Optional[str] = None):
         query = supabase.from_("designations").select("*")
         if org_id:
             query = query.eq("org_id", org_id)
-        return query.execute()
-    return await safe_supabase_operation(op, "Failed to fetch designations")
+        # Add ordering to ensure consistent results
+        return query.order("name").execute()
+    result = await safe_supabase_operation(op, "Failed to fetch designations")
+    
+    # Remove duplicates based on name (case-insensitive) at the backend level
+    if result.data:
+        seen_names = set()
+        unique_designations = []
+        for designation in result.data:
+            name_lower = designation.get("name", "").lower()
+            if name_lower not in seen_names:
+                seen_names.add(name_lower)
+                unique_designations.append(designation)
+        result.data = unique_designations
+    
+    return result
 
 async def update_designation(designation_id: str, data: dict):
     supabase = get_supabase_client()
