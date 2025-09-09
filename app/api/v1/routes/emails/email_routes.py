@@ -27,7 +27,7 @@ default_sender: str = os.getenv("DEFAULT_SENDER_EMAIL", "dharmatej.nandikanti@in
 
 from_email: Email = Email(default_sender, 'TasksMate Team')
 
-default_web_link:str = os.getenv("DEFAULT_WEB_LINK","https://mytasksmate.netlify.app")
+default_web_link:str = os.getenv("DEFAULT_WEB_LINK","https://tasksmate.indrasol.com")
 
 
 # class EmailValidator(BaseModel):
