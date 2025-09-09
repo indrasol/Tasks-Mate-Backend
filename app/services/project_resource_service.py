@@ -10,9 +10,10 @@ from typing import Dict, Any, Optional
 from fastapi import HTTPException, UploadFile
 
 import urllib.parse
+from app.config.settings import PROJECT_RESOURCES_BUCKET_TM
 
 # Storage bucket for project resources
-RESOURCES_BUCKET = os.getenv("PROJECT_RESOURCES_BUCKET", "project-resources")
+RESOURCES_BUCKET = PROJECT_RESOURCES_BUCKET_TM or "project-resources"  # fallback for compatibility
 
 def _extract_public_url(url_result: Any) -> str:
 	if isinstance(url_result, dict):
@@ -227,7 +228,9 @@ async def upload_and_create_project_resource(
     except Exception:
         org_id_val = "unknown"
 
-    prefix_path = f"{org_id_val}/{project_id}"
+    # Follow pattern: {bucket}/{org_id}/{project_id}/{user_id}/{filename}
+    user_id_safe = user_id or "unknown"
+    prefix_path = f"{org_id_val}/{project_id}/{user_id_safe}"
 
     # original filename sanitized
     original_name = _sanitize_name(title or file.filename or "file")

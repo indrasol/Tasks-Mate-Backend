@@ -5,6 +5,10 @@ from typing import Optional
 
 from app.core.db.supabase_db import get_supabase_client
 from app.services.auth_handler import get_current_user_id
+from app.config.settings import AVATARS_BUCKET_TM
+
+# Storage bucket for avatars
+AVATARS_BUCKET = AVATARS_BUCKET_TM or "avatars"  # fallback for compatibility
 
 
 async def upload_avatar(
@@ -12,17 +16,17 @@ async def upload_avatar(
     filename: str,
     user_id: str,
     username: str,
-    org_name: str = "default"
+    org_id: str = "default"
 ) -> str:
     """
     Upload user avatar to Supabase storage.
     
     Args:
-        file_content: File content as BytesIO
+        file_content: File content as bytes
         filename: Original filename
-        user_id: User ID for metadata
-        username: Username for path construction
-        org_name: Organization name for path construction
+        user_id: User ID for metadata and unique storage path
+        username: Username for display purposes (not used in storage path)
+        org_id: Organization ID for folder structure
         
     Returns:
         URL to the uploaded avatar
@@ -33,14 +37,14 @@ async def upload_avatar(
     # Create a unique filename to avoid collisions
     unique_filename = f"{uuid.uuid4()}{file_extension}"
     
-    # Construct path: {org_name}/{username}/{unique_filename}
-    storage_path = f"{org_name}/{username}/{unique_filename}"
+    # Follow pattern: {bucket}/{org_id}/{user_id}/{filename}
+    storage_path = f"{org_id}/{user_id}/{unique_filename}"
     
     # Get Supabase client
     supabase = get_supabase_client()
     
     # Upload file bytes to Supabase storage
-    response = supabase.storage.from_("avatars").upload(
+    response = supabase.storage.from_(AVATARS_BUCKET).upload(
         path=storage_path,
         file=file_content,
         file_options={"content-type": "image/*"}
@@ -50,7 +54,7 @@ async def upload_avatar(
         raise Exception(f"Supabase storage error: {response.error}")
     
     # Get public URL
-    public_resp = supabase.storage.from_("avatars").get_public_url(storage_path)
+    public_resp = supabase.storage.from_(AVATARS_BUCKET).get_public_url(storage_path)
     if isinstance(public_resp, dict):
         avatar_url = public_resp.get("publicUrl")
     else:

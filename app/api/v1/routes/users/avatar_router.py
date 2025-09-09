@@ -6,8 +6,6 @@ from io import BytesIO
 from app.models.schemas.user_schema import UserAvatarResponse
 from app.services.auth_handler import get_current_user
 from app.services.avatar_service import upload_avatar
-from app.services.organization_service import get_organizations_for_user
-from app.core.db.supabase_db import get_supabase_client
 
 router = APIRouter()
 
@@ -15,12 +13,12 @@ router = APIRouter()
 @router.post("/upload", response_model=UserAvatarResponse)
 async def upload_user_avatar(
     file: UploadFile = File(...),
-    org_name: Optional[str] = None,
+    org_id: Optional[str] = None,
     current_user: dict = Depends(get_current_user)
 ):
     """
     Upload a user's avatar to Supabase storage.
-    The avatar will be stored in 'avatars/{org_name}/{username}/{file_name}'
+    The avatar will be stored in '{bucket}/{org_id}/{user_id}/{unique_filename}' to ensure proper organization.
     """
     # Validate image file
     if not file.content_type.startswith("image/"):
@@ -44,32 +42,19 @@ async def upload_user_avatar(
         # Reset file pointer
         await file.seek(0)
         
-        # Get username from user metadata or fallback to user ID
+        # Get username for display purposes (still needed for user metadata)
         username = current_user.get("username") or current_user.get("user_metadata", {}).get("username") or current_user.get("id", "unknown")
         
-        # Get organization name - if not provided, try to get user's first organization
-        org_folder = org_name
-        if not org_folder:
-            try:
-                user_orgs = await get_organizations_for_user(
-                    current_user.get("id"), 
-                    username, 
-                    current_user.get("email")
-                )
-                if user_orgs and len(user_orgs) > 0:
-                    org_folder = user_orgs[0].get("name", "default")
-                else:
-                    org_folder = "default"
-            except Exception:
-                org_folder = "default"
+        # Use provided org_id or default
+        org_id_to_use = org_id or "default"
         
-        # Upload file to Supabase
+        # Upload file to Supabase with proper folder structure
         avatar_url = await upload_avatar(
             file_content=contents,
             filename=file.filename,
             user_id=current_user.get("id"),
             username=username,
-            org_name=org_folder
+            org_id=org_id_to_use
         )
         
         return {"avatar_url": avatar_url}
