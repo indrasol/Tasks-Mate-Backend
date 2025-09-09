@@ -8,9 +8,10 @@ from fastapi import HTTPException, UploadFile
 
 from app.core.db.supabase_db import get_supabase_client, safe_supabase_operation
 from app.services.task_history_service import record_history
+from app.config.settings import TASKS_ATTACHMENTS_BUCKET_TM
 
 # Config
-ATTACHMENTS_BUCKET = os.getenv("ATTACHMENTS_BUCKET", "task-attachments")  # keep your existing name
+ATTACHMENTS_BUCKET = TASKS_ATTACHMENTS_BUCKET_TM or "task-attachments"  # fallback for compatibility
 ATTACHMENTS_LIMIT = int(os.getenv("ATTACHMENTS_LIMIT", "5"))
 
 ATTACHMENT_UPDATE_WHITELIST = ["title", "is_inline", "filename", "url", "path"]
@@ -123,12 +124,12 @@ def _safe_storage_path(prefix: str, original: str, existing: set[str]) -> str:
         i += 1
     return path
 
-async def _list_existing_paths(sb, task_id: str) -> set[str]:
+async def _list_existing_paths(sb, prefix_path: str) -> set[str]:
     try:
         # Supabase list with prefix, returns dict with 'data' (list of objects with 'name')
-        listing = sb.storage.from_(ATTACHMENTS_BUCKET).list(path=task_id, search="")
+        listing = sb.storage.from_(ATTACHMENTS_BUCKET).list(path=prefix_path, search="")
         names = [o.get("name") for o in (listing or []) if isinstance(o, dict)]
-        return {f"{task_id}/{n}" for n in names if n}
+        return {f"{prefix_path}/{n}" for n in names if n}
     except Exception:
         return set()
 
@@ -182,7 +183,9 @@ async def upload_and_create_task_attachment(
     except Exception:
         org_id_val = "unknown"
 
-    prefix_path = f"{org_id_val}/{task_id}"
+    # Follow pattern: {bucket}/{org_id}/{task_id}/{user_id}/{filename}
+    user_id_safe = user_id or "unknown"
+    prefix_path = f"{org_id_val}/{task_id}/{user_id_safe}"
 
     original_name = _sanitize_name(title or file.filename or "file")
     storage_path = f"{prefix_path}/{original_name}"

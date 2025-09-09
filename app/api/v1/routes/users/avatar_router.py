@@ -13,12 +13,12 @@ router = APIRouter()
 @router.post("/upload", response_model=UserAvatarResponse)
 async def upload_user_avatar(
     file: UploadFile = File(...),
-    org_name: Optional[str] = None,
+    org_id: Optional[str] = None,
     current_user: dict = Depends(get_current_user)
 ):
     """
     Upload a user's avatar to Supabase storage.
-    The avatar will be stored in 'avatars/{user_id}/{unique_filename}' to ensure user isolation.
+    The avatar will be stored in '{bucket}/{org_id}/{user_id}/{unique_filename}' to ensure proper organization.
     """
     # Validate image file
     if not file.content_type.startswith("image/"):
@@ -45,14 +45,16 @@ async def upload_user_avatar(
         # Get username for display purposes (still needed for user metadata)
         username = current_user.get("username") or current_user.get("user_metadata", {}).get("username") or current_user.get("id", "unknown")
         
-        # Upload file to Supabase - org_name and username no longer used for storage path
-        # but kept for backwards compatibility with the function signature
+        # Use provided org_id or default
+        org_id_to_use = org_id or "default"
+        
+        # Upload file to Supabase with proper folder structure
         avatar_url = await upload_avatar(
             file_content=contents,
             filename=file.filename,
             user_id=current_user.get("id"),
             username=username,
-            org_name="default"  # Not used in storage path anymore
+            org_id=org_id_to_use
         )
         
         return {"avatar_url": avatar_url}

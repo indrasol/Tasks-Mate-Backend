@@ -4,12 +4,16 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from fastapi import HTTPException, UploadFile
 from app.core.db.supabase_db import get_supabase_client, safe_supabase_operation
+from app.config.settings import BUG_ATTACHMENTS_BUCKET_TM
 from app.models.schemas.bug import (
     BugCreate, BugUpdate, BugCommentCreate, BugCommentUpdate, BugRelationCreate,
     BugSearchParams
 )
 
 from app.models.enums import BugStatusEnum
+
+# Use dedicated bug attachments bucket
+BUG_ATTACHMENTS_BUCKET = BUG_ATTACHMENTS_BUCKET_TM or "bug-attachments"
 
 
 async def _generate_sequential_bug_id() -> str:
@@ -346,13 +350,17 @@ async def upload_bug_attachment(
     # Generate a unique filename
     file_ext = file.filename.split('.')[-1] if '.' in file.filename else ''
     file_name = f"{uuid.uuid4()}.{file_ext}"
-    file_path = f"bug_attachments/{bug_id}/{file_name}"
+    
+    # Get org_id from bug (assuming bugs table has org_id)
+    # For now, using "unknown" as fallback - this should be updated based on your bug table structure
+    org_id = "unknown"  # TODO: Extract org_id from bug record
+    file_path = f"bug_attachments/{org_id}/{bug_id}/{username}/{file_name}"
     
     # Upload to storage
     supabase = get_supabase_client()
     
     def upload_op():
-        return supabase.storage.from_("bug-attachments").upload(file_path, file_content)
+        return supabase.storage.from_(BUG_ATTACHMENTS_BUCKET).upload(file_path, file_content)
     
     upload_result = await safe_supabase_operation(upload_op, "Failed to upload file")
     
@@ -361,7 +369,7 @@ async def upload_bug_attachment(
     
     # Get public URL
     def get_url_op():
-        return supabase.storage.from_("bug-attachments").get_public_url(file_path)
+        return supabase.storage.from_(BUG_ATTACHMENTS_BUCKET).get_public_url(file_path)
     
     public_url = await safe_supabase_operation(get_url_op, "Failed to get file URL")
     
