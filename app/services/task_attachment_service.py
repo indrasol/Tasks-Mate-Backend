@@ -12,6 +12,7 @@ from app.config.settings import TASKS_ATTACHMENTS_BUCKET_TM
 
 # Config
 ATTACHMENTS_BUCKET = TASKS_ATTACHMENTS_BUCKET_TM or "task-attachments"  # fallback for compatibility
+print(f"ATTACHMENTS_BUCKET: {ATTACHMENTS_BUCKET}")
 ATTACHMENTS_LIMIT = int(os.getenv("ATTACHMENTS_LIMIT", "5"))
 
 ATTACHMENT_UPDATE_WHITELIST = ["title", "is_inline", "filename", "url", "path"]
