@@ -11,6 +11,17 @@ ENV/
 .venv/
 .pipenv/
 
+supabase/.temp/
+supabase/temp/
+*.temp
+cli-latest
+gotrue-version
+pooler-url
+postgres-version
+project-ref
+rest-version
+storage-version
+
 # Environment variables
 .env
 .env.development

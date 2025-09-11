@@ -28,4 +28,19 @@ async def get_project_role(user_id: str, project_id: str):
         # if role_details and role_details.data and role_details.data.get("name"):
         #     return role_details.data.get("name").lower()
         return role_name
+    else:
+        org_id = await get_org_by_proj(project_id)
+        org_role = await get_org_role(user_id, org_id)
+        if org_role in ["owner", "admin"]:
+            return org_role
+    return None
+
+async def get_org_by_proj(proj_id: str):
+    supabase = get_supabase_client()
+    def op():
+        return supabase.from_("projects").select("org_id").eq("project_id", proj_id).limit(1).execute()
+    result = await safe_supabase_operation(op, "Failed to fetch project membership role")
+    if result.data and len(result.data) > 0:
+        org_id = result.data[0].get("org_id")
+        return org_id
     return None
