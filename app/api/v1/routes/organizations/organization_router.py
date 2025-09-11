@@ -34,7 +34,7 @@ async def create_org(org: OrganizationCreate, user=Depends(verify_token)):
     description = org_data.get("description")
     designation = org_data.get("designation")
     username = user["username"]
-    email = user["email"]
+    email = user["email"].lower()
 
     try:
         result_org = await create_organization({"name":name, "description":description, "designation":designation, "created_by": username, "created_by_email": email })
@@ -44,7 +44,7 @@ async def create_org(org: OrganizationCreate, user=Depends(verify_token)):
         now_iso = datetime.now().isoformat()
         await create_organization_member({
             "user_id": user["id"],
-            "email": user["email"],
+            "email": user["email"].lower(),
             "username": user["username"],
             "org_id": org_id,
             "designation": designation,

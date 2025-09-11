@@ -86,13 +86,13 @@ async def _organization_name_exists(name: str, username:str, email:str) -> bool:
 
     # loop through result.data and check if any org_id matches the membership
     for org in result.data:
-        result = supabase.from_("organization_members").select("org_id").eq("org_id", org["org_id"]).eq("email", email).eq("is_active", True).limit(1).execute()
+        result = supabase.from_("organization_members").select("org_id").eq("org_id", org["org_id"]).ilike("email", email).eq("is_active", True).limit(1).execute()
         if(bool(result.data)):
             return True
 
     # loop through result.data and check if any invite is present
     for org in result.data:
-        result = supabase.from_("organization_invites").select("org_id").eq("org_id", org["org_id"]).eq("email", email).eq("invite_status", "pending").limit(1).execute()
+        result = supabase.from_("organization_invites").select("org_id").eq("org_id", org["org_id"]).ilike("email", email).eq("invite_status", "pending").limit(1).execute()
         if(bool(result.data)):
             return True
             
@@ -309,7 +309,7 @@ async def get_organizations_for_user(user_id: str, username: str, email: Optiona
     invite_org_ids = set()
     if email:
         def invite_op():
-            return supabase.from_("organization_invites").select("org_id, id").eq("email", email).execute()
+            return supabase.from_("organization_invites").select("org_id, id").ilike("email", email).execute()
 
         invite_result = await safe_supabase_operation(invite_op, "Failed to fetch organization invites")
         invite_org_ids = {row["org_id"] for row in invite_result.data or []}
