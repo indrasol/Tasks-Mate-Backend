@@ -90,7 +90,7 @@ async def reply_to_comment(reply: ReplyCreate, user=Depends(verify_token), role=
 async def list_task_comments(
     task_id: str = Query(..., description="ID of the task to get comments for"),
     search: Optional[str] = Query(None, description="Search term to filter comments"),
-    limit: int = Query(20, ge=1, le=100, description="Number of comments to return"),
+    limit: int = Query(20, ge=1, description="Number of comments to return"),
     offset: int = Query(0, ge=0, description="Number of comments to skip"),
     sort_by: str = Query("created_at", description="Field to sort by"),
     sort_order: str = Query("asc", description="Sort order (asc or desc)"),
