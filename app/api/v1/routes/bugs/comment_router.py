@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from app.services.auth_handler import verify_token
-from app.services.bug_service import create_bug_comment, get_bug_comments, update_bug_comment
+from app.services.bug_service import create_bug_comment, get_bug_comments, update_bug_comment, delete_bug_comment
 from app.models.schemas.bug import BugCommentCreate, BugCommentUpdate, BugCommentInDB
 
 router = APIRouter(prefix="/comments", tags=["bug_comments"])
@@ -54,7 +54,7 @@ async def update_comment(
         result = await update_bug_comment(
             bug_id=bug_id,
             comment_id=comment_id,
-            comment_update=comment_update,
+            comment_data=comment_update,
             username=current_user["username"]
         )
         if not result or not result.data:
@@ -69,27 +69,27 @@ async def update_comment(
             detail=str(e)
         )
 
-# @router.delete("/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
-# async def delete_comment(
-#     bug_id: str,
-#     comment_id: str,
-#     current_user: dict = Depends(verify_token)
-# ):
-#     """Delete a bug comment."""
-#     try:
-#         result = await delete_bug_comment(
-#             bug_id=bug_id,
-#             comment_id=comment_id,
-#             username=current_user["username"]
-#         )
-#         if not result or not result.data:
-#             raise HTTPException(
-#                 status_code=status.HTTP_404_NOT_FOUND,
-#                 detail="Comment not found"
-#             )
-#         return None
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail=str(e)
-#         )
+@router.delete("/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_comment(
+    bug_id: str,
+    comment_id: str,
+    current_user: dict = Depends(verify_token)
+):
+    """Delete a bug comment."""
+    try:
+        result = await delete_bug_comment(
+            bug_id=bug_id,
+            comment_id=comment_id,
+            username=current_user["username"]
+        )
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Comment not found"
+            )
+        return None
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )

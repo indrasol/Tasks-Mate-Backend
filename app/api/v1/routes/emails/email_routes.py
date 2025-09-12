@@ -12,6 +12,7 @@ from app.utils.logger import get_logger
 
 from app.models.schemas.organization_invite import OrganizationInviteInDB
 from app.models.schemas.task import TaskInDB
+from app.models.schemas.task_comment import TaskCommentInDB
 
 from app.services.organization_service import get_organization_name
 from app.services.user_service import get_user_details_by_username
@@ -177,6 +178,75 @@ async def send_task_assignment_email(task_data: TaskInDB):
     except Exception as e:
         logger.error(f"Error sending task assignment email: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to send task assignment email.")
+
+
+@router.post("/send-task-comment-email")
+async def send_task_comment_email(task_data: TaskCommentInDB):
+    """
+    Sends an email to notify a user that a task has been assigned to them.
+    """
+
+    # Loop through Mentions and send the email accordingly
+    try:
+        if not task_data.get("mentions"):
+            return {"success": False, "message": "No mentions found in the task comment."}
+
+        task_title = task_data.get("task_title") or "a new task"
+        task_id = task_data.get("task_id")
+        org_id = task_data.get("org_id")
+
+        invited_by = task_data.get("updated_by") or task_data.get("created_by") or "a TasksMate user"
+        base_link = task_data.get("invite_link") or default_web_link
+
+        # Build detailed task link
+        full_link = base_link
+        if not task_data.get("invite_link") and task_id:
+            full_link += f"/tasks/{task_id}"
+            if org_id:
+                full_link += f"?org_id={org_id}"
+
+
+        for mention in task_data.get("mentions"):
+            try:
+                assignee = mention.get("username") or mention.get("email")
+                email = mention.get("email")
+                
+
+                if assignee == invited_by:
+                    return {"success": False, "message": "Self assignment - no mail sent."}
+
+                
+
+                subject = f"TasksMate - You've been mentioned in a task comment"
+
+                greeting = f"<p>Hi <strong>{assignee}</strong>,</p>"
+                body = (
+                    f"<strong>{invited_by}</strong> just commented on a task: <strong>{task_title}</strong> on <strong>TasksMate</strong>.<br><br>"
+                    f"The comment reads: <br> <strong>{task_data.get('comment') or task_data.get('content')}</strong>.<br><br>"
+                    f"You can now track its progress, collaborate, and mark it complete directly from your workspace.<br><br>"
+                    f"<strong>Stay organized and productive!</strong><br>"
+                    f"If you have any questions, feel free to reach out to your team or reply to this email."
+                )
+
+                html_content = generate_email_html(
+                    title="Comment on Task",
+                    greeting=greeting,
+                    body=body,
+                    cta_text="View Task",
+                    cta_link=full_link,
+                )
+
+                return await send_mail_to_user(email, subject, html_content)
+
+            except Exception as e:
+                logger.error(f"Error sending task assignment email: {str(e)}")
+                # raise HTTPException(status_code=500, detail="Failed to send task assignment email.")
+            
+    except Exception as e:
+        logger.error(f"Error sending task comment email: {str(e)}")
+        # raise HTTPException(status_code=500, detail="Failed to send task comment email.")
+
+    return {"success": True, "message": "Task comment email sent successfully"}
 
 
 def generate_email_html(title: str, greeting: str, body: str, cta_text: str, cta_link: str) -> str:

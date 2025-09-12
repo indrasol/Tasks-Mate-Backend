@@ -5,6 +5,7 @@ from app.models.schemas.task_comment import TaskCommentCreate, TaskCommentUpdate
 from app.services.task_comment_service import create_task_comment, get_task_comment, update_task_comment, delete_task_comment, get_comments_for_task
 from app.services.auth_handler import verify_token
 # from app.api.v1.routes.projects.proj_rbac import project_rbac
+from app.api.v1.routes.emails.email_routes import send_task_comment_email
 
 
 
@@ -42,6 +43,7 @@ async def create_comment(comment: TaskCommentCreate, user=Depends(verify_token),
     
     try:
         result = await create_task_comment(payload)
+        await send_task_comment_email(result.data[0])
         if not result.data:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -142,6 +144,7 @@ async def update_comment(comment_id: str, comment: TaskCommentUpdate, user=Depen
     if payload.get("content"):
         payload.setdefault("comment", payload["content"]) 
     result = await update_task_comment(comment_id, payload)
+    await send_task_comment_email(result.data[0])
     return result.data[0]
 
 @router.delete("/{comment_id}")

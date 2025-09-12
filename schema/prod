@@ -272,6 +272,8 @@ CREATE TABLE public.task_comments (
   comment_id text NOT NULL,
   comment text,
   parent_comment_id text,
+  mentions ARRAY,
+  org_id text,
   CONSTRAINT task_comments_pkey PRIMARY KEY (comment_id),
   CONSTRAINT task_comments_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(task_id)
 );
