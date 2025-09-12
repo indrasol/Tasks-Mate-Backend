@@ -24,7 +24,7 @@ async def create_resource(resource: ProjectResourceCreate, project_id: str, user
 async def list_project_resources(
     project_id: str = Query(...),
     search: Optional[str] = Query(None),
-    limit: int = Query(20, ge=1),
+    limit: int = Query(100000, ge=1),
     offset: int = Query(0, ge=0),
     sort_by: str = Query("resource_type"),
     sort_order: str = Query("asc"),

@@ -25,7 +25,7 @@ async def create_member(member: OrganizationMemberCreate, user=Depends(verify_to
 async def list_org_members(
     org_id: str,
     search: Optional[str] = Query(None),
-    limit: int = Query(20, ge=1),
+    limit: int = Query(100000, ge=1),
     offset: int = Query(0, ge=0),
     sort_by: str = Query("updated_at"),
     sort_order: str = Query("asc"),
