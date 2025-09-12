@@ -126,6 +126,12 @@ async def create_task(data: dict, user_name: Optional[str] = None, actor_display
         data["start_date"] = data["start_date"].isoformat()
     if data.get("due_date") and hasattr(data["due_date"], "isoformat"):
         data["due_date"] = data["due_date"].isoformat()
+
+    bug_id = data["bug_id"]
+    data.pop("bug_id", None)
+
+    tracker_id = data["tracker_id"]
+    data.pop("tracker_id", None)
     
     # Insert the task
     supabase = get_supabase_client()
@@ -143,6 +149,48 @@ async def create_task(data: dict, user_name: Optional[str] = None, actor_display
             created_by=data.get("created_by"),
             title=data.get("title"),
             metadata=[],  # keep 'created' clean; the snapshot can be large—prefer UI shows created event only
+            actor_display=actor_display,
+        )    
+
+    if bug_id or tracker_id:
+        data["bug_id"] = bug_id
+        data["tracker_id"] = tracker_id
+        await create_tracker_task(data, user_name, actor_display)
+
+    return result
+
+
+async def create_tracker_task(data: dict, user_name: Optional[str] = None, actor_display: Optional[str] = None) -> Dict[str, Any]:
+    """Create a new task with history tracking."""
+
+    tracker_data = {}
+
+    tracker_data["tracker_id"] = data["tracker_id"]
+    tracker_data["bug_id"] = data["bug_id"]
+    tracker_data["task_id"] = data["task_id"]
+    tracker_data["created_at"] = data["created_at"]
+    
+    # Insert the task
+    supabase = get_supabase_client()
+    def op():
+        return supabase.from_("test_tracker_tasks").insert(tracker_data).execute()
+    
+    result = await safe_supabase_operation(op, "Failed to create task tracker")
+    print(f"Task Tracker created: {data.get('title')}")
+
+    changes: List[Dict[str, Any]] = []
+
+    changes.append({"field": "bug_id", "old": None, "new": data["bug_id"]})
+    changes.append({"field": "tracker_id", "old": None, "new": data["tracker_id"]})
+    
+    # Create initial history entry
+    if result.data:
+        await record_history(
+            task_id=data["task_id"],
+            action="updated",
+            created_by=data.get("created_by"),
+            title=data.get("title"),
+            metadata=changes,  # keep 'created' clean; the snapshot can be large—prefer UI shows created event only
             actor_display=actor_display,
         )
     return result

@@ -21,6 +21,8 @@ class TaskBase(BaseModel):
     created_by: Optional[str] = Field(None, description="Who created the task")
     updated_by: Optional[str] = Field(None, description="Who last updated the task")
     is_subtask: Optional[bool] = Field(None, description="Is Sub Task")
+    bug_id: Optional[str] = Field(None, description="Bug ID (text)", example="B1234")
+    tracker_id: Optional[str] = Field(None, description="Tracker ID (text)", example="TR1234")
 
 class TaskCreate(TaskBase):
     pass

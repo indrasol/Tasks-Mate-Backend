@@ -41,7 +41,7 @@ async def _generate_sequential_org_invite_id() -> str:
 async def check_organization_member_exists(data: dict):
     supabase = get_supabase_client()
     def op():
-        return supabase.from_("organization_members").select("user_id").eq("org_id", data["org_id"]).eq("email", data["email"]).eq("is_active", True).limit(1).execute()
+        return supabase.from_("organization_members").select("user_id").eq("org_id", data["org_id"]).ilike("email", data["email"]).eq("is_active", True).limit(1).execute()
     res = await safe_supabase_operation(op, "Failed to check organization member exists")
     if res.data:
         raise HTTPException(400, detail="User is already a member of this organisation")
@@ -49,14 +49,14 @@ async def check_organization_member_exists(data: dict):
 async def check_organization_invite_exists(data: dict):
     supabase = get_supabase_client()
     def op():
-        return supabase.from_("organization_invites").select("id").eq("org_id", data["org_id"]).eq("email", data["email"]).eq("invite_status", "pending").limit(1).execute()
+        return supabase.from_("organization_invites").select("id").eq("org_id", data["org_id"]).ilike("email", data["email"]).eq("invite_status", "pending").limit(1).execute()
     res = await safe_supabase_operation(op, "Failed to check organization invite duplicate")
     if res.data:
         raise HTTPException(400, detail="An invite is already pending for this user")
 
 async def create_organization_invite(data: dict):
-    supabase = get_supabase_client()
-    data["id"] = await _generate_sequential_org_invite_id()
+    
+    data['email'] = data['email'].lower()
 
     # Normalize designation to valid slug if provided
     if data.get("designation"):
@@ -72,6 +72,9 @@ async def create_organization_invite(data: dict):
     # B. duplicate pending invite?
     await check_organization_invite_exists(data)
 
+    supabase = get_supabase_client()
+    data["id"] = await _generate_sequential_org_invite_id()
+
     def op():        
         return supabase.from_("organization_invites").insert(data).execute()
     return await safe_supabase_operation(op, "Failed to create organization invite")
@@ -83,6 +86,9 @@ async def get_organization_invite(invite_id: str):
     return await safe_supabase_operation(op, "Failed to fetch organization invite")
 
 async def update_organization_invite(invite_id: str, data: dict):
+
+    data['email'] = data['email'].lower()
+
     # Normalize designation to valid slug if provided
     if data.get("designation"):
         from app.services.organization_member_service import _resolve_designation_slug
@@ -103,12 +109,16 @@ async def delete_organization_invite(invite_id: str):
     return await safe_supabase_operation(op, "Failed to delete organization invite")
 
 async def get_invites_for_org(org_id, search=None, limit=20, offset=0, sort_by="email", sort_order="asc", email=None):
+
+    if email:
+        email = email.lower()
+
     supabase = get_supabase_client()
     query = supabase.from_("organization_invites").select("*").eq("org_id", org_id)
     if search:
         query = query.ilike("email", f"%{search}%")
     if email:
-        query = query.eq("email", email)
+        query = query.ilike("email", email)
     query = query.order(sort_by, desc=(sort_order == "desc"))
     result = query.range(offset, offset + limit - 1).execute()
     
@@ -124,8 +134,11 @@ async def get_invites_for_org(org_id, search=None, limit=20, offset=0, sort_by="
     return invites
 
 async def get_invites_for_user(email:str):
+
+    email = email.lower()
+
     supabase = get_supabase_client()
-    query = supabase.from_("organization_invites").select("*").eq("email", email)   
+    query = supabase.from_("organization_invites").select("*").ilike("email", email)   
     result = query.execute()
     
     # Convert designation slugs back to display names for frontend

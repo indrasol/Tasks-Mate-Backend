@@ -45,7 +45,7 @@ async def create_member(member: ProjectMemberCreate, user=Depends(verify_token),
 async def list_project_members(
     project_id: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
-    limit: Optional[int] = Query(20, ge=1, le=100),
+    limit: Optional[int] = Query(20, ge=1),
     offset: Optional[int] = Query(0, ge=0),
     sort_by: Optional[str] = Query("updated_at"),
     sort_order: Optional[str] = Query("asc"),
