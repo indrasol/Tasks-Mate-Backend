@@ -90,6 +90,15 @@ CREATE TABLE public.designations (
   slug USER-DEFINED,
   CONSTRAINT designations_pkey PRIMARY KEY (designation_id)
 );
+CREATE TABLE public.feedback (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  module text NOT NULL,
+  type text NOT NULL,
+  message text NOT NULL,
+  submitted_by uuid,
+  submitted_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT feedback_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.organization_invites (
   id text NOT NULL,
   org_id text NOT NULL,
@@ -235,7 +244,8 @@ CREATE TABLE public.scratchpads (
   user_name text NOT NULL,
   content text NOT NULL DEFAULT ''::text,
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT scratchpads_pkey PRIMARY KEY (org_id, user_id)
+  CONSTRAINT scratchpads_pkey PRIMARY KEY (org_id, user_id),
+  CONSTRAINT scratchpads_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(org_id)
 );
 CREATE TABLE public.task_attachments (
   task_id text NOT NULL,
@@ -336,8 +346,8 @@ CREATE TABLE public.test_trackers (
   delete_reason text,
   updated_by text,
   CONSTRAINT test_trackers_pkey PRIMARY KEY (tracker_id),
-  CONSTRAINT test_trackers_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(org_id),
-  CONSTRAINT test_trackers_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(project_id)
+  CONSTRAINT test_trackers_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(project_id),
+  CONSTRAINT test_trackers_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(org_id)
 );
 CREATE TABLE public.users (
   id uuid NOT NULL,
