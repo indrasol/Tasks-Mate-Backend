@@ -46,7 +46,7 @@ async def list_trackers(
     user=Depends(verify_token),
     org_role=Depends(org_rbac),
     search: Optional[str] = Query(None),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1),
     offset: int = Query(0, ge=0),
     sort_by: str = Query("created_at"),
     sort_order: str = Query("desc"),

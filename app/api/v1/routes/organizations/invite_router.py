@@ -80,7 +80,7 @@ async def create_invite(invite: OrganizationInviteCreate, background_tasks: Back
 async def list_org_invites(
     org_id: str,
     search: Optional[str] = Query(None),
-    limit: Optional[int] = Query(20, ge=1, le=100),
+    limit: Optional[int] = Query(20, ge=1),
     offset: Optional[int] = Query(0, ge=0),
     sort_by: Optional[str] = Query("email"),
     sort_order: Optional[str] = Query("asc"),

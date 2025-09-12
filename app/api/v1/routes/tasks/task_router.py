@@ -30,7 +30,7 @@ async def list_all_tasks(
     org_id: Optional[str] = Query(None),
     project_id: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1),
     offset: int = Query(0, ge=0),
     sort_by: str = Query("title"),
     sort_order: str = Query("asc"),

@@ -111,10 +111,10 @@ async def _resolve_slug_to_name(slug: str) -> Optional[str]:
 async def check_organization_member_exists(data: dict):
     supabase = get_supabase_client()
     def op():
-        return supabase.from_("organization_members").select("user_id").eq("org_id", data["org_id"]).eq("email", data["email"]).eq("is_active", True).limit(1).execute()
+        return supabase.from_("organization_members").select("user_id").eq("org_id", data["org_id"]).ilike("email", data["email"]).eq("is_active", True).limit(1).execute()
     res = await safe_supabase_operation(op, "Failed to check organization member exists")
     if res.data:
-        raise HTTPException(400, detail="User is already a member of this organisation")
+        raise HTTPException(400, detail="User is already a member of this organization")
 
 async def create_organization_member(data: dict):
     supabase = get_supabase_client()
