@@ -9,7 +9,7 @@ router = APIRouter(prefix="/history", tags=["bug_history"])
 @router.get("", response_model=List[BugActivityLogInDB])
 async def get_bug_history(
     bug_id: str,
-    limit: int = Query(50, ge=1, description="Number of history items to return"),
+    limit: int = Query(100000, ge=1, description="Number of history items to return"),
     offset: int = Query(0, ge=0, description="Number of items to skip"),
     current_user: dict = Depends(verify_token)
 ):
