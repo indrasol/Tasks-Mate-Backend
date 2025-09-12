@@ -79,7 +79,7 @@ class BugCommentCreate(BugCommentBase):
     pass
 
 class BugCommentUpdate(BugCommentBase):
-    content: Optional[str] = Field(None, min_length=1, description="The updated comment content")
+    pass
 
 class BugCommentInDB(BugCommentBase):
     id: str
