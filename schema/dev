@@ -41,8 +41,8 @@ CREATE TABLE public.bug_relations (
   created_at timestamp with time zone DEFAULT now(),
   created_by text NOT NULL,
   CONSTRAINT bug_relations_pkey PRIMARY KEY (source_bug_id, target_bug_id, relation_type),
-  CONSTRAINT bug_relations_target_bug_id_fkey FOREIGN KEY (target_bug_id) REFERENCES public.bugs(id),
-  CONSTRAINT bug_relations_source_bug_id_fkey FOREIGN KEY (source_bug_id) REFERENCES public.bugs(id)
+  CONSTRAINT bug_relations_source_bug_id_fkey FOREIGN KEY (source_bug_id) REFERENCES public.bugs(id),
+  CONSTRAINT bug_relations_target_bug_id_fkey FOREIGN KEY (target_bug_id) REFERENCES public.bugs(id)
 );
 CREATE TABLE public.bug_watchers (
   bug_id text NOT NULL,
@@ -76,18 +76,28 @@ CREATE TABLE public.bugs (
   updated_at timestamp with time zone DEFAULT now(),
   closed_at timestamp with time zone,
   CONSTRAINT bugs_pkey PRIMARY KEY (id),
-  CONSTRAINT bugs_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(project_id),
-  CONSTRAINT bugs_tracker_id_fkey FOREIGN KEY (tracker_id) REFERENCES public.test_trackers(tracker_id)
+  CONSTRAINT bugs_tracker_id_fkey FOREIGN KEY (tracker_id) REFERENCES public.test_trackers(tracker_id),
+  CONSTRAINT bugs_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(project_id)
 );
 CREATE TABLE public.designations (
-  name USER-DEFINED NOT NULL,
   metadata jsonb DEFAULT '{}'::jsonb,
   created_by uuid,
   updated_by uuid,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   designation_id text NOT NULL,
+  slug USER-DEFINED,
+  name USER-DEFINED,
   CONSTRAINT designations_pkey PRIMARY KEY (designation_id)
+);
+CREATE TABLE public.feedback (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  module text NOT NULL,
+  type text NOT NULL,
+  message text NOT NULL,
+  submitted_by uuid,
+  submitted_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT feedback_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.organization_invites (
   id text NOT NULL,
@@ -142,6 +152,7 @@ CREATE TABLE public.organizations (
   created_by text,
   updated_by text,
   deleted_by text,
+  deleted_at timestamp with time zone,
   CONSTRAINT organizations_pkey PRIMARY KEY (org_id)
 );
 CREATE TABLE public.organizations_history (
@@ -157,9 +168,9 @@ CREATE TABLE public.organizations_history (
   designations ARRAY,
   org_id text,
   created_by text,
-  updated_by text,
   deleted_by text,
-  is_deleted boolean
+  is_deleted boolean,
+  updated_by text
 );
 CREATE TABLE public.project_members (
   project_id text NOT NULL,
@@ -233,7 +244,8 @@ CREATE TABLE public.scratchpads (
   user_name text NOT NULL,
   content text NOT NULL DEFAULT ''::text,
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT scratchpads_pkey PRIMARY KEY (org_id, user_id)
+  CONSTRAINT scratchpads_pkey PRIMARY KEY (org_id, user_id),
+  CONSTRAINT scratchpads_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(org_id)
 );
 CREATE TABLE public.task_attachments (
   task_id text NOT NULL,
@@ -286,8 +298,8 @@ CREATE TABLE public.tasks (
   org_id text,
   is_subtask boolean DEFAULT false,
   CONSTRAINT tasks_pkey PRIMARY KEY (task_id),
-  CONSTRAINT tasks_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(project_id),
-  CONSTRAINT tasks_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(org_id)
+  CONSTRAINT tasks_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(org_id),
+  CONSTRAINT tasks_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(project_id)
 );
 CREATE TABLE public.tasks_history (
   task_id text NOT NULL,
@@ -308,9 +320,11 @@ CREATE TABLE public.test_tracker_tasks (
   tracker_id text NOT NULL,
   task_id text NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT test_tracker_tasks_pkey PRIMARY KEY (tracker_id, task_id),
+  bug_id text NOT NULL,
+  CONSTRAINT test_tracker_tasks_pkey PRIMARY KEY (tracker_id, task_id, bug_id),
   CONSTRAINT test_tracker_tasks_tracker_id_fkey FOREIGN KEY (tracker_id) REFERENCES public.test_trackers(tracker_id),
-  CONSTRAINT test_tracker_tasks_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(task_id)
+  CONSTRAINT test_tracker_tasks_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(task_id),
+  CONSTRAINT test_tracker_tasks_bug_id_fkey FOREIGN KEY (bug_id) REFERENCES public.bugs(id)
 );
 CREATE TABLE public.test_trackers (
   tracker_id text NOT NULL,
