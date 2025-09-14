@@ -141,12 +141,17 @@ def _transform_team_productivity(productivity_data: List[Dict[str, Any]]) -> Lis
     result = []
     
     for item in productivity_data:
+        # Get assignee name with proper null handling
+        assignee_name = item.get("assignee_name")
+        if assignee_name is None or assignee_name == "":
+            assignee_name = "Unassigned"
+        
         # Map the database fields to our expected schema
         transformed_item = {
-            "name": item.get("assignee_name", "Unknown"),
-            "tasksCompleted": item.get("tasks_completed", 0),
-            "tasksTotal": item.get("tasks_total", 0),
-            "efficiency": item.get("productivity_percent", 0)
+            "name": str(assignee_name),  # Ensure it's always a string
+            "tasksCompleted": int(item.get("tasks_completed", 0)),
+            "tasksTotal": int(item.get("tasks_total", 0)),
+            "efficiency": int(item.get("productivity_percent", 0))
         }
         result.append(transformed_item)
     
@@ -165,14 +170,14 @@ def _transform_project_summary(summary_data: List[Dict[str, Any]]) -> List[Dict[
     result = []
     
     for item in summary_data:
-        # Map the database fields to our expected schema
+        # Map the database fields to our expected schema with null handling
         transformed_item = {
-            "name": item.get("project_name", "Unknown"),
-            "progress": item.get("progress_percent", 0),
-            "tasks": item.get("tasks_total", 0),
-            "team": item.get("team_members", 0),
-            "status": item.get("status", "Unknown"),
-            "project_id": item.get("project_id", "")
+            "name": str(item.get("project_name", "Untitled Project")),
+            "progress": int(item.get("progress_percent", 0)),
+            "tasks": int(item.get("tasks_total", 0)),
+            "team": int(item.get("team_members", 0)),
+            "status": str(item.get("status", "Unknown")),
+            "project_id": str(item.get("project_id", ""))
         }
         result.append(transformed_item)
     
@@ -191,10 +196,15 @@ def _transform_top_contributors(contributors_data: List[Dict[str, Any]]) -> List
     result = []
     
     for item in contributors_data:
+        # Get contributor name with proper null handling
+        contributor_name = item.get("contributor_name")
+        if contributor_name is None or contributor_name == "":
+            contributor_name = "Unassigned"
+        
         # Map the database fields to our expected schema
         transformed_item = {
-            "contributor_name": item.get("contributor_name", "Unknown"),
-            "completed_tasks": item.get("completed_tasks", 0)
+            "contributor_name": str(contributor_name),
+            "completed_tasks": int(item.get("completed_tasks", 0))
         }
         result.append(transformed_item)
     
@@ -211,9 +221,9 @@ def _transform_bug_summary(bug_data: Dict[str, Any]) -> Dict[str, Any]:
         Bug summary object in the required format
     """
     return {
-        "open_bugs": bug_data.get("open_bugs", 0),
-        "closed_bugs": bug_data.get("closed_bugs", 0),
-        "high_severity_bugs": bug_data.get("high_severity_bugs", 0)
+        "open_bugs": int(bug_data.get("open_bugs", 0) or 0),
+        "closed_bugs": int(bug_data.get("closed_bugs", 0) or 0),
+        "high_severity_bugs": int(bug_data.get("high_severity_bugs", 0) or 0)
     }
 
 def _transform_overdue_tasks(overdue_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -229,12 +239,12 @@ def _transform_overdue_tasks(overdue_data: List[Dict[str, Any]]) -> List[Dict[st
     result = []
     
     for item in overdue_data:
-        # Map the database fields to our expected schema
+        # Map the database fields to our expected schema with null handling
         transformed_item = {
-            "task_id": item.get("task_id", ""),
-            "title": item.get("title", "Unknown"),
-            "assignee": item.get("assignee"),
-            "due_date": item.get("due_date", "")
+            "task_id": str(item.get("task_id", "")),
+            "title": str(item.get("title", "Untitled Task")),
+            "assignee": str(item.get("assignee", "")) if item.get("assignee") else None,
+            "due_date": str(item.get("due_date", ""))
         }
         result.append(transformed_item)
     
@@ -253,12 +263,12 @@ def _transform_upcoming_deadlines(deadlines_data: List[Dict[str, Any]]) -> List[
     result = []
     
     for item in deadlines_data:
-        # Map the database fields to our expected schema
+        # Map the database fields to our expected schema with null handling
         transformed_item = {
-            "task_id": item.get("task_id", ""),
-            "title": item.get("title", "Unknown"),
-            "assignee": item.get("assignee"),
-            "due_date": item.get("due_date", "")
+            "task_id": str(item.get("task_id", "")),
+            "title": str(item.get("title", "Untitled Task")),
+            "assignee": str(item.get("assignee", "")) if item.get("assignee") else None,
+            "due_date": str(item.get("due_date", ""))
         }
         result.append(transformed_item)
     
@@ -277,12 +287,17 @@ def _transform_workload_distribution(workload_data: List[Dict[str, Any]]) -> Lis
     result = []
     
     for item in workload_data:
+        # Get assignee name with proper null handling
+        assignee_name = item.get("assignee_name")
+        if assignee_name is None or assignee_name == "":
+            assignee_name = "Unassigned"
+        
         # Map the database fields to our expected schema
         transformed_item = {
-            "assignee_name": item.get("assignee_name", "Unknown"),
-            "tasks_total": item.get("tasks_total", 0),
-            "tasks_completed": item.get("tasks_completed", 0),
-            "tasks_pending": item.get("tasks_pending", 0)
+            "assignee_name": str(assignee_name),
+            "tasks_total": int(item.get("tasks_total", 0)),
+            "tasks_completed": int(item.get("tasks_completed", 0)),
+            "tasks_pending": int(item.get("tasks_pending", 0))
         }
         result.append(transformed_item)
     
