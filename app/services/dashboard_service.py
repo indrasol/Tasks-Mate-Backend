@@ -34,7 +34,16 @@ async def get_dashboard_data(org_id: str) -> Dict[str, Any]:
                 "project_status_distribution": [],
                 "task_completion_trends": [],
                 "team_productivity": [],
-                "project_performance_summary": []
+                "project_performance_summary": [],
+                "top_contributors": [],
+                "bug_summary": {
+                    "open_bugs": 0,
+                    "closed_bugs": 0,
+                    "high_severity_bugs": 0
+                },
+                "overdue_tasks": [],
+                "upcoming_deadlines": [],
+                "workload_distribution": []
             }
         }
     
@@ -49,7 +58,12 @@ async def get_dashboard_data(org_id: str) -> Dict[str, Any]:
             "project_status_distribution": _transform_project_status(dashboard_data.get("project_status_distribution", {})),
             "task_completion_trends": _transform_task_trends(dashboard_data.get("task_completion_trends", [])),
             "team_productivity": _transform_team_productivity(dashboard_data.get("team_productivity", [])),
-            "project_performance_summary": _transform_project_summary(dashboard_data.get("project_performance_summary", []))
+            "project_performance_summary": _transform_project_summary(dashboard_data.get("project_performance_summary", [])),
+            "top_contributors": _transform_top_contributors(dashboard_data.get("top_contributors", [])),
+            "bug_summary": _transform_bug_summary(dashboard_data.get("bug_summary", {})),
+            "overdue_tasks": _transform_overdue_tasks(dashboard_data.get("overdue_tasks", [])),
+            "upcoming_deadlines": _transform_upcoming_deadlines(dashboard_data.get("upcoming_deadlines", [])),
+            "workload_distribution": _transform_workload_distribution(dashboard_data.get("workload_distribution", []))
         }
     }
     
@@ -159,6 +173,116 @@ def _transform_project_summary(summary_data: List[Dict[str, Any]]) -> List[Dict[
             "team": item.get("team_members", 0),
             "status": item.get("status", "Unknown"),
             "project_id": item.get("project_id", "")
+        }
+        result.append(transformed_item)
+    
+    return result
+
+def _transform_top_contributors(contributors_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Transform top contributors data to match our expected schema.
+    
+    Args:
+        contributors_data: Raw top contributors data from the database
+        
+    Returns:
+        List of top contributor items in the required format
+    """
+    result = []
+    
+    for item in contributors_data:
+        # Map the database fields to our expected schema
+        transformed_item = {
+            "contributor_name": item.get("contributor_name", "Unknown"),
+            "completed_tasks": item.get("completed_tasks", 0)
+        }
+        result.append(transformed_item)
+    
+    return result
+
+def _transform_bug_summary(bug_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Transform bug summary data to match our expected schema.
+    
+    Args:
+        bug_data: Raw bug summary data from the database
+        
+    Returns:
+        Bug summary object in the required format
+    """
+    return {
+        "open_bugs": bug_data.get("open_bugs", 0),
+        "closed_bugs": bug_data.get("closed_bugs", 0),
+        "high_severity_bugs": bug_data.get("high_severity_bugs", 0)
+    }
+
+def _transform_overdue_tasks(overdue_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Transform overdue tasks data to match our expected schema.
+    
+    Args:
+        overdue_data: Raw overdue tasks data from the database
+        
+    Returns:
+        List of overdue task items in the required format
+    """
+    result = []
+    
+    for item in overdue_data:
+        # Map the database fields to our expected schema
+        transformed_item = {
+            "task_id": item.get("task_id", ""),
+            "title": item.get("title", "Unknown"),
+            "assignee": item.get("assignee"),
+            "due_date": item.get("due_date", "")
+        }
+        result.append(transformed_item)
+    
+    return result
+
+def _transform_upcoming_deadlines(deadlines_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Transform upcoming deadlines data to match our expected schema.
+    
+    Args:
+        deadlines_data: Raw upcoming deadlines data from the database
+        
+    Returns:
+        List of upcoming deadline items in the required format
+    """
+    result = []
+    
+    for item in deadlines_data:
+        # Map the database fields to our expected schema
+        transformed_item = {
+            "task_id": item.get("task_id", ""),
+            "title": item.get("title", "Unknown"),
+            "assignee": item.get("assignee"),
+            "due_date": item.get("due_date", "")
+        }
+        result.append(transformed_item)
+    
+    return result
+
+def _transform_workload_distribution(workload_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Transform workload distribution data to match our expected schema.
+    
+    Args:
+        workload_data: Raw workload distribution data from the database
+        
+    Returns:
+        List of workload distribution items in the required format
+    """
+    result = []
+    
+    for item in workload_data:
+        # Map the database fields to our expected schema
+        transformed_item = {
+            "assignee_name": item.get("assignee_name", "Unknown"),
+            "tasks_total": item.get("tasks_total", 0),
+            "tasks_completed": item.get("tasks_completed", 0),
+            "tasks_pending": item.get("tasks_pending", 0)
         }
         result.append(transformed_item)
     
