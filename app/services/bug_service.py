@@ -225,7 +225,7 @@ async def create_bug_comment(bug_id: str, comment_data: BugCommentCreate, userna
     
     return result
 
-async def update_bug_comment(comment_id: str, comment_data: BugCommentUpdate, username: str) -> Dict[str, Any]:
+async def update_bug_comment(bug_id:str,comment_id: str, comment_data: BugCommentUpdate, username: str) -> Dict[str, Any]:
     """Update a comment on a bug."""
     supabase = get_supabase_client()
     
@@ -242,7 +242,7 @@ async def update_bug_comment(comment_id: str, comment_data: BugCommentUpdate, us
     # Log the comment update activity
     if result.data:
         await _log_bug_activity(
-            bug_id=comment_data.bug_id,
+            bug_id=bug_id,
             username=username,
             activity_type="comment_updated",
             old_value={"comment_id": comment_id, "content": comment_data.content[:100]},
@@ -264,6 +264,32 @@ async def get_bug_comments(bug_id: str) -> List[Dict[str, Any]]:
     
     result = await safe_supabase_operation(op, "Failed to fetch comments")
     return result.data if result.data else []
+
+async def delete_bug_comment(bug_id: str, comment_id: str, username: str) -> bool:
+    """Delete Bug Comment."""
+    supabase = get_supabase_client()
+    
+    def op():
+        return (
+            supabase.from_("bug_comments")
+            .delete()
+            .eq("id", comment_id)
+            .execute()
+        )
+    
+    result = await safe_supabase_operation(op, "Failed to remove comment")
+    
+    # Log the activity if the comment was removed
+    if result.data and len(result.data) > 0:
+        await _log_bug_activity(
+            bug_id=bug_id,
+            username=username,
+            activity_type="comment_removed",
+            old_value={"comment_id": comment_id}
+        )
+        return True
+    
+    return False
 
 # Bug Attachments
 async def create_bug_attachment(bug_id: str, file: UploadFile, username: str) -> Dict[str, Any]:

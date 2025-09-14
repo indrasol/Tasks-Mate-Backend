@@ -3,6 +3,12 @@ from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
 
+class Mention(BaseModel):
+    user_id: Optional[str] = None
+    username: Optional[str] = None
+    email: Optional[str] = None
+
+
 class TaskCommentBase(BaseModel):
     task_id: str = Field(..., description="Task ID (text)", example="task-1234")
     task_title: Optional[str] = Field(None, description="Task title snapshot at time of comment", example="Implement Login")
@@ -13,6 +19,8 @@ class TaskCommentBase(BaseModel):
     parent_comment_id: Optional[str] = Field(None, description="ID of the parent comment if this is a reply")
     created_at: Optional[datetime] = Field(None, description="When the comment was created")
     updated_at: Optional[datetime] = Field(None, description="When the comment was last updated")
+    mentions: Optional[List[Mention]] = Field(None, description="List of mentioned users details in the comment")
+    org_id: Optional[str] = Field(None, description="Organization ID (UUID)")
 
 class TaskCommentCreate(TaskCommentBase):
     pass
@@ -25,6 +33,7 @@ class TaskCommentUpdate(BaseModel):
     content: Optional[str] = Field(None, description="Comment content")
     created_at: Optional[datetime] = Field(None, description="When the comment was created")
     updated_at: Optional[datetime] = Field(None, description="When the comment was last updated")
+    org_id: Optional[str] = Field(None, description="Organization ID (UUID)")
 
 class TaskCommentInDB(TaskCommentBase):
     comment_id: str
