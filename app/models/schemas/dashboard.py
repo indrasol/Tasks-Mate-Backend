@@ -78,6 +78,49 @@ class DashboardData(BaseModel):
     upcoming_deadlines: List[UpcomingDeadlineItem] = Field(..., description="Upcoming deadlines list")
     workload_distribution: List[WorkloadDistributionItem] = Field(..., description="Workload distribution across team members")
 
+# User Dashboard Models
+class UserKPIData(BaseModel):
+    total_tasks: int = Field(..., description="Total number of tasks assigned to user")
+    completed_tasks: int = Field(..., description="Number of completed tasks")
+    pending_tasks: int = Field(..., description="Number of pending tasks")
+    total_projects: int = Field(..., description="Number of projects user is involved in")
+
+class UserProjectSummaryItem(BaseModel):
+    project_id: str = Field(..., description="Project ID")
+    project_name: str = Field(..., description="Project name")
+    progress_percent: int = Field(..., description="Project progress percentage")
+    tasks_total: int = Field(..., description="Total tasks for user in this project")
+    tasks_completed: int = Field(..., description="Completed tasks for user in this project")
+    tasks_pending: int = Field(..., description="Pending tasks for user in this project")
+
+class UserWorkloadDistribution(BaseModel):
+    tasks_total: int = Field(..., description="Total tasks assigned to user")
+    tasks_completed: int = Field(..., description="Completed tasks")
+    tasks_pending: int = Field(..., description="Pending tasks")
+
+class UserUpcomingDeadlineItem(BaseModel):
+    task_id: str = Field(..., description="Task ID")
+    title: str = Field(..., description="Task title")
+    due_date: str = Field(..., description="Due date")
+    project_id: str = Field(..., description="Project ID")
+
+class UserOverdueTaskItem(BaseModel):
+    task_id: str = Field(..., description="Task ID")
+    title: str = Field(..., description="Task title")
+    due_date: str = Field(..., description="Due date")
+    project_id: str = Field(..., description="Project ID")
+
+class UserDashboardData(BaseModel):
+    kpis: UserKPIData = Field(..., description="User key performance indicators")
+    my_project_summary: List[UserProjectSummaryItem] = Field(..., description="User's project summary")
+    my_workload_distribution: UserWorkloadDistribution = Field(..., description="User's workload distribution")
+    my_upcoming_deadlines: List[UserUpcomingDeadlineItem] = Field(..., description="User's upcoming deadlines")
+    my_overdue_tasks: List[UserOverdueTaskItem] = Field(..., description="User's overdue tasks")
+
+class UserDashboardResponse(BaseModel):
+    user_id: str = Field(..., description="User ID")
+    data: UserDashboardData = Field(..., description="User dashboard data")
+
 class DashboardResponse(BaseModel):
     org_id: str = Field(..., description="Organization ID")
     data: DashboardData = Field(..., description="Dashboard data")

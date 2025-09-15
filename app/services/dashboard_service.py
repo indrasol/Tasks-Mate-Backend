@@ -302,3 +302,130 @@ def _transform_workload_distribution(workload_data: List[Dict[str, Any]]) -> Lis
         result.append(transformed_item)
     
     return result
+
+
+async def get_user_dashboard_data(user_id: str) -> Dict[str, Any]:
+    """
+    Fetch dashboard data for a specific user from the user_dashboard_view.
+    
+    Args:
+        user_id: The ID of the user
+        
+    Returns:
+        A dictionary containing the user dashboard data
+    """
+    supabase = get_supabase_client()
+    
+    # Query the user_dashboard_view for the specific user
+    response = supabase.from_("user_dashboard_view").select("*").eq("user_id", user_id).execute()
+    
+    # Process the response directly without the handle_db_response function
+    result_data = response.data if hasattr(response, 'data') else []
+    
+    # If no data is found, return an empty result with default structure
+    if not result_data:
+        return {
+            "user_id": user_id,
+            "data": {
+                "kpis": {
+                    "total_tasks": 0,
+                    "completed_tasks": 0,
+                    "pending_tasks": 0,
+                    "total_projects": 0
+                },
+                "my_project_summary": [],
+                "my_workload_distribution": {
+                    "tasks_total": 0,
+                    "tasks_completed": 0,
+                    "tasks_pending": 0
+                },
+                "my_upcoming_deadlines": [],
+                "my_overdue_tasks": []
+            }
+        }
+    
+    # Transform the data to match our schema
+    user_dashboard_data = result_data[0]
+    
+    # Prepare the transformed response
+    transformed_data = {
+        "user_id": user_id,
+        "data": {
+            "kpis": _transform_user_kpis(user_dashboard_data.get("kpis", {})),
+            "my_project_summary": _transform_user_project_summary(user_dashboard_data.get("my_project_summary", [])),
+            "my_workload_distribution": _transform_user_workload_distribution(user_dashboard_data.get("my_workload_distribution", {})),
+            "my_upcoming_deadlines": _transform_user_upcoming_deadlines(user_dashboard_data.get("my_upcoming_deadlines", [])),
+            "my_overdue_tasks": _transform_user_overdue_tasks(user_dashboard_data.get("my_overdue_tasks", []))
+        }
+    }
+    
+    return transformed_data
+
+
+def _transform_user_kpis(kpis_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Transform user KPIs data to match our expected schema."""
+    return {
+        "total_tasks": int(kpis_data.get("total_tasks", 0) or 0),
+        "completed_tasks": int(kpis_data.get("completed_tasks", 0) or 0),
+        "pending_tasks": int(kpis_data.get("pending_tasks", 0) or 0),
+        "total_projects": int(kpis_data.get("total_projects", 0) or 0)
+    }
+
+
+def _transform_user_project_summary(project_summary_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Transform user project summary data to match our expected schema."""
+    result = []
+    
+    for item in project_summary_data:
+        transformed_item = {
+            "project_id": str(item.get("project_id", "")),
+            "project_name": str(item.get("project_name", "Untitled Project")),
+            "progress_percent": int(item.get("progress_percent", 0) or 0),
+            "tasks_total": int(item.get("tasks_total", 0) or 0),
+            "tasks_completed": int(item.get("tasks_completed", 0) or 0),
+            "tasks_pending": int(item.get("tasks_pending", 0) or 0)
+        }
+        result.append(transformed_item)
+    
+    return result
+
+
+def _transform_user_workload_distribution(workload_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Transform user workload distribution data to match our expected schema."""
+    return {
+        "tasks_total": int(workload_data.get("tasks_total", 0) or 0),
+        "tasks_completed": int(workload_data.get("tasks_completed", 0) or 0),
+        "tasks_pending": int(workload_data.get("tasks_pending", 0) or 0)
+    }
+
+
+def _transform_user_upcoming_deadlines(deadlines_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Transform user upcoming deadlines data to match our expected schema."""
+    result = []
+    
+    for item in deadlines_data:
+        transformed_item = {
+            "task_id": str(item.get("task_id", "")),
+            "title": str(item.get("title", "Untitled Task")),
+            "due_date": str(item.get("due_date", "")),
+            "project_id": str(item.get("project_id", ""))
+        }
+        result.append(transformed_item)
+    
+    return result
+
+
+def _transform_user_overdue_tasks(overdue_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Transform user overdue tasks data to match our expected schema."""
+    result = []
+    
+    for item in overdue_data:
+        transformed_item = {
+            "task_id": str(item.get("task_id", "")),
+            "title": str(item.get("title", "Untitled Task")),
+            "due_date": str(item.get("due_date", "")),
+            "project_id": str(item.get("project_id", ""))
+        }
+        result.append(transformed_item)
+    
+    return result
