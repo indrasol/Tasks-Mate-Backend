@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from fastapi import HTTPException, UploadFile
 from app.core.db.supabase_db import get_supabase_client, safe_supabase_operation
-from app.config.settings import BUG_ATTACHMENTS_BUCKET_TM
+# from app.config.settings import BUG_ATTACHMENTS_BUCKET_TM
 from app.models.schemas.bug import (
     BugCreate, BugUpdate, BugCommentCreate, BugCommentUpdate, BugRelationCreate,
     BugSearchParams
@@ -13,7 +13,7 @@ from app.models.schemas.bug import (
 from app.models.enums import BugStatusEnum
 
 # Use dedicated bug attachments bucket
-BUG_ATTACHMENTS_BUCKET = BUG_ATTACHMENTS_BUCKET_TM or "bug-attachments"
+# BUG_ATTACHMENTS_BUCKET = BUG_ATTACHMENTS_BUCKET_TM or "bug-attachments"
 
 
 async def _generate_sequential_bug_id() -> str:
@@ -290,176 +290,189 @@ async def delete_bug_comment(bug_id: str, comment_id: str, username: str) -> boo
         return True
     
     return False
-
-# Bug Attachments
-async def create_bug_attachment(bug_id: str, file: UploadFile, username: str) -> Dict[str, Any]:
-    """Add an attachment to a bug."""
-    # Upload file to storage
-    file_content = await file.read()
-    file_path = f"bug_attachments/{bug_id}/{uuid.uuid4()}_{file.filename}"
     
-    supabase = get_supabase_client()
-    
-    def upload_op():
-        return supabase.storage.from_("attachments").upload(file_path, file_content)
-    
-    upload_result = await safe_supabase_operation(upload_op, "Failed to upload file")
-    
-    if not upload_result:
-        raise HTTPException(status_code=500, detail="Failed to upload file")
-    
-    # Create attachment record
-    attachment_data = {
-        "bug_id": bug_id,
-        "user_id": username,
-        "file_name": file.filename,
-        "file_path": file_path,
-        "file_type": file.content_type,
-        "file_size": len(file_content),
-        "created_at": datetime.utcnow().isoformat()
-    }
-    
-    def insert_op():
-        return supabase.from_("bug_attachments").insert(attachment_data).execute()
-    
-    result = await safe_supabase_operation(insert_op, "Failed to create attachment record")
-    
-    # Log the attachment activity
-    if result.data:
-        await _log_bug_activity(
-            bug_id=bug_id,
-            username=username,
-            activity_type="attachment_added",
-            new_value={"file_name": file.filename, "file_size": len(file_content)}
-        )
-    
-    return result
-
-# Bug Attachments
-
-async def list_bug_attachments(bug_id: str) -> List[Dict[str, Any]]:
-    """List all attachments for a bug."""
+async def get_bug_dependencies(bug_id: str) -> List[Dict[str, Any]]:
+    """Get all comments for a bug."""
     supabase = get_supabase_client()
     
     def op():
-        return (
-            supabase.from_("bug_attachments")
-            .select("*")
-            .eq("bug_id", bug_id)
-            .order("created_at", desc=True)
-            .execute()
-        )
+        return supabase.from_("test_tracker_tasks") \
+                     .select("task_id") \
+                     .eq("bug_id", bug_id) \
+                     .execute()
     
-    result = await safe_supabase_operation(op, "Failed to list bug attachments")
+    result = await safe_supabase_operation(op, "Failed to fetch dependencies")
     return result.data if result.data else []
 
-async def get_bug_attachment(attachment_id: str) -> Optional[Dict[str, Any]]:
-    """Get a bug attachment by ID."""
-    supabase = get_supabase_client()
+# # Bug Attachments
+# async def create_bug_attachment(bug_id: str, file: UploadFile, username: str) -> Dict[str, Any]:
+#     """Add an attachment to a bug."""
+#     # Upload file to storage
+#     file_content = await file.read()
+#     file_path = f"bug_attachments/{bug_id}/{uuid.uuid4()}_{file.filename}"
     
-    def op():
-        return supabase.from_("bug_attachments").select("*").eq("id", attachment_id).single().execute()
+#     supabase = get_supabase_client()
     
-    result = await safe_supabase_operation(op, "Failed to fetch bug attachment")
-    return result.data if result.data else None
+#     def upload_op():
+#         return supabase.storage.from_("attachments").upload(file_path, file_content)
+    
+#     upload_result = await safe_supabase_operation(upload_op, "Failed to upload file")
+    
+#     if not upload_result:
+#         raise HTTPException(status_code=500, detail="Failed to upload file")
+    
+#     # Create attachment record
+#     attachment_data = {
+#         "bug_id": bug_id,
+#         "user_id": username,
+#         "file_name": file.filename,
+#         "file_path": file_path,
+#         "file_type": file.content_type,
+#         "file_size": len(file_content),
+#         "created_at": datetime.utcnow().isoformat()
+#     }
+    
+#     def insert_op():
+#         return supabase.from_("bug_attachments").insert(attachment_data).execute()
+    
+#     result = await safe_supabase_operation(insert_op, "Failed to create attachment record")
+    
+#     # Log the attachment activity
+#     if result.data:
+#         await _log_bug_activity(
+#             bug_id=bug_id,
+#             username=username,
+#             activity_type="attachment_added",
+#             new_value={"file_name": file.filename, "file_size": len(file_content)}
+#         )
+    
+#     return result
 
-async def upload_bug_attachment(
-    bug_id: str,
-    file: UploadFile,
-    username: str,
-    description: Optional[str] = None
-) -> Dict[str, Any]:
-    """Upload and attach a file to a bug."""
-    # Read file content
-    file_content = await file.read()
-    
-    # Generate a unique filename
-    file_ext = file.filename.split('.')[-1] if '.' in file.filename else ''
-    file_name = f"{uuid.uuid4()}.{file_ext}"
-    
-    # Get org_id from bug (assuming bugs table has org_id)
-    # For now, using "unknown" as fallback - this should be updated based on your bug table structure
-    org_id = "unknown"  # TODO: Extract org_id from bug record
-    file_path = f"bug_attachments/{org_id}/{bug_id}/{username}/{file_name}"
-    
-    # Upload to storage
-    supabase = get_supabase_client()
-    
-    def upload_op():
-        return supabase.storage.from_(BUG_ATTACHMENTS_BUCKET).upload(file_path, file_content)
-    
-    upload_result = await safe_supabase_operation(upload_op, "Failed to upload file")
-    
-    if not upload_result:
-        raise HTTPException(status_code=500, detail="Failed to upload file to storage")
-    
-    # Get public URL
-    def get_url_op():
-        return supabase.storage.from_(BUG_ATTACHMENTS_BUCKET).get_public_url(file_path)
-    
-    public_url = await safe_supabase_operation(get_url_op, "Failed to get file URL")
-    
-    # Create attachment record
-    attachment_data = {
-        "bug_id": bug_id,
-        "file_name": file.filename,
-        "file_path": file_path,
-        "file_type": file.content_type,
-        "file_size": len(file_content),
-        "user_id": username,
-        "description": description,
-        "url": public_url,
-        "created_at": datetime.utcnow().isoformat()
-    }
-    
-    def insert_op():
-        return supabase.from_("bug_attachments").insert(attachment_data).execute()
-    
-    result = await safe_supabase_operation(insert_op, "Failed to create attachment record")
-    
-    # Log the attachment activity
-    if result.data:
-        await _log_bug_activity(
-            bug_id=bug_id,
-            username=username,
-            activity_type="attachment_added",
-            new_value={"file_name": file.filename, "file_size": len(file_content)}
-        )
-    
-    return result.data[0] if result.data else None
+# # Bug Attachments
 
-async def delete_bug_attachment(attachment_id: str, username: str) -> bool:
-    """Delete a bug attachment by ID."""
-    # Get attachment data first
-    attachment = await get_bug_attachment(attachment_id)
-    if not attachment:
-        raise HTTPException(status_code=404, detail="Attachment not found")
+# async def list_bug_attachments(bug_id: str) -> List[Dict[str, Any]]:
+#     """List all attachments for a bug."""
+#     supabase = get_supabase_client()
     
-    # Delete from storage
-    supabase = get_supabase_client()
+#     def op():
+#         return (
+#             supabase.from_("bug_attachments")
+#             .select("*")
+#             .eq("bug_id", bug_id)
+#             .order("created_at", desc=True)
+#             .execute()
+#         )
     
-    def delete_storage_op():
-        return supabase.storage.from_("bug-attachments").remove([attachment["file_path"]])
+#     result = await safe_supabase_operation(op, "Failed to list bug attachments")
+#     return result.data if result.data else []
+
+# async def get_bug_attachment(attachment_id: str) -> Optional[Dict[str, Any]]:
+#     """Get a bug attachment by ID."""
+#     supabase = get_supabase_client()
     
-    # Even if storage deletion fails, we'll still try to delete the DB record
-    await safe_supabase_operation(delete_storage_op, "Failed to delete file from storage")
+#     def op():
+#         return supabase.from_("bug_attachments").select("*").eq("id", attachment_id).single().execute()
     
-    # Delete the record
-    def delete_db_op():
-        return supabase.from_("bug_attachments").delete().eq("id", attachment_id).execute()
+#     result = await safe_supabase_operation(op, "Failed to fetch bug attachment")
+#     return result.data if result.data else None
+
+# async def upload_bug_attachment(
+#     bug_id: str,
+#     file: UploadFile,
+#     username: str,
+#     description: Optional[str] = None
+# ) -> Dict[str, Any]:
+#     """Upload and attach a file to a bug."""
+#     # Read file content
+#     file_content = await file.read()
     
-    result = await safe_supabase_operation(delete_db_op, "Failed to delete attachment record")
+#     # Generate a unique filename
+#     file_ext = file.filename.split('.')[-1] if '.' in file.filename else ''
+#     file_name = f"{uuid.uuid4()}.{file_ext}"
     
-    # Log the deletion
-    if result.data:
-        await _log_bug_activity(
-            bug_id=attachment["bug_id"],
-            username=username,
-            activity_type="attachment_removed",
-            old_value={"file_name": attachment["file_name"]}
-        )
+#     # Get org_id from bug (assuming bugs table has org_id)
+#     # For now, using "unknown" as fallback - this should be updated based on your bug table structure
+#     org_id = "unknown"  # TODO: Extract org_id from bug record
+#     file_path = f"bug_attachments/{org_id}/{bug_id}/{username}/{file_name}"
     
-    return len(result.data) > 0 if result.data else False
+#     # Upload to storage
+#     supabase = get_supabase_client()
+    
+#     def upload_op():
+#         return supabase.storage.from_(BUG_ATTACHMENTS_BUCKET).upload(file_path, file_content)
+    
+#     upload_result = await safe_supabase_operation(upload_op, "Failed to upload file")
+    
+#     if not upload_result:
+#         raise HTTPException(status_code=500, detail="Failed to upload file to storage")
+    
+#     # Get public URL
+#     def get_url_op():
+#         return supabase.storage.from_(BUG_ATTACHMENTS_BUCKET).get_public_url(file_path)
+    
+#     public_url = await safe_supabase_operation(get_url_op, "Failed to get file URL")
+    
+#     # Create attachment record
+#     attachment_data = {
+#         "bug_id": bug_id,
+#         "file_name": file.filename,
+#         "file_path": file_path,
+#         "file_type": file.content_type,
+#         "file_size": len(file_content),
+#         "user_id": username,
+#         "description": description,
+#         "url": public_url,
+#         "created_at": datetime.utcnow().isoformat()
+#     }
+    
+#     def insert_op():
+#         return supabase.from_("bug_attachments").insert(attachment_data).execute()
+    
+#     result = await safe_supabase_operation(insert_op, "Failed to create attachment record")
+    
+#     # Log the attachment activity
+#     if result.data:
+#         await _log_bug_activity(
+#             bug_id=bug_id,
+#             username=username,
+#             activity_type="attachment_added",
+#             new_value={"file_name": file.filename, "file_size": len(file_content)}
+#         )
+    
+#     return result.data[0] if result.data else None
+
+# async def delete_bug_attachment(attachment_id: str, username: str) -> bool:
+#     """Delete a bug attachment by ID."""
+#     # Get attachment data first
+#     attachment = await get_bug_attachment(attachment_id)
+#     if not attachment:
+#         raise HTTPException(status_code=404, detail="Attachment not found")
+    
+#     # Delete from storage
+#     supabase = get_supabase_client()
+    
+#     def delete_storage_op():
+#         return supabase.storage.from_("bug-attachments").remove([attachment["file_path"]])
+    
+#     # Even if storage deletion fails, we'll still try to delete the DB record
+#     await safe_supabase_operation(delete_storage_op, "Failed to delete file from storage")
+    
+#     # Delete the record
+#     def delete_db_op():
+#         return supabase.from_("bug_attachments").delete().eq("id", attachment_id).execute()
+    
+#     result = await safe_supabase_operation(delete_db_op, "Failed to delete attachment record")
+    
+#     # Log the deletion
+#     if result.data:
+#         await _log_bug_activity(
+#             bug_id=attachment["bug_id"],
+#             username=username,
+#             activity_type="attachment_removed",
+#             old_value={"file_name": attachment["file_name"]}
+#         )
+    
+#     return len(result.data) > 0 if result.data else False
 
 # Bug Watchers
 async def add_bug_watcher(bug_id: str, username: str) -> Dict[str, Any]:
