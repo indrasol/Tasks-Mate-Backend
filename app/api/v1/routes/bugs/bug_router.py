@@ -6,13 +6,12 @@ from app.services.auth_handler import verify_token
 
 from app.models.schemas.bug import (
     BugCreate, BugUpdate, BugInDB, BugWithRelations,
-    BugCommentCreate, BugCommentInDB,     BugAttachmentInDB, BugRelationCreate, BugRelationInDB,
-    BugStatusEnum, BugPriorityEnum, BugTypeEnum, BugSearchParams
+    BugRelationCreate, BugRelationInDB,
+    BugSearchParams
 )
 from app.services.bug_service import (
     create_bug, get_bug, update_bug, delete_bug,
-    create_bug_comment, get_bug_comments,
-    create_bug_attachment, create_bug_relation,
+    create_bug_relation,
     search_bugs
 )
 
@@ -21,6 +20,7 @@ from .comment_router import router as comment_router
 from .attachment_router import router as attachment_router
 from .history_router import router as history_router
 from .watcher_router import router as watcher_router
+from .dependencies_router import router as dependencies_router
 
 router = APIRouter()
 
@@ -29,6 +29,7 @@ router.include_router(comment_router, prefix="/{bug_id}", tags=["bug_comments"])
 router.include_router(attachment_router, prefix="/{bug_id}", tags=["bug_attachments"])
 router.include_router(history_router, prefix="/{bug_id}", tags=["bug_history"])
 router.include_router(watcher_router, prefix="/{bug_id}", tags=["bug_watchers"])
+router.include_router(dependencies_router, prefix="/{bug_id}", tags=["bug_dependencies"])
 
 @router.post("", response_model=BugInDB, status_code=status.HTTP_201_CREATED)
 async def create_new_bug(

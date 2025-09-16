@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 from app.models.enums import BugPriorityEnum, BugStatusEnum, BugTypeEnum
+from app.models.schemas.bug_attachment import BugAttachmentInDB
 
 # Base models
 class BugBase(BaseModel):
@@ -92,23 +93,23 @@ class BugCommentInDB(BugCommentBase):
         orm_mode = True
 
 # Attachment models
-class BugAttachmentBase(BaseModel):
-    file_name: str = Field(..., description="Original name of the file")
-    file_path: str = Field(..., description="Path to the stored file")
-    file_type: Optional[str] = Field(None, description="MIME type of the file")
-    file_size: Optional[int] = Field(None, description="Size of the file in bytes")
+# class BugAttachmentBase(BaseModel):
+#     file_name: str = Field(..., description="Original name of the file")
+#     file_path: str = Field(..., description="Path to the stored file")
+#     file_type: Optional[str] = Field(None, description="MIME type of the file")
+#     file_size: Optional[int] = Field(None, description="Size of the file in bytes")
 
-class BugAttachmentCreate(BugAttachmentBase):
-    pass
+# class BugAttachmentCreate(BugAttachmentBase):
+#     pass
 
-class BugAttachmentInDB(BugAttachmentBase):
-    id: str
-    bug_id: str
-    user_id: str
-    created_at: datetime
+# class BugAttachmentInDB(BugAttachmentBase):
+#     id: str
+#     bug_id: str
+#     user_id: str
+#     created_at: datetime
 
-    class Config:
-        orm_mode = True
+#     class Config:
+#         orm_mode = True
 
 # Activity log models
 class BugActivityLogInDB(BaseModel):
