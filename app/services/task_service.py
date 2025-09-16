@@ -198,7 +198,7 @@ async def create_tracker_task(data: dict, user_name: Optional[str] = None, actor
 async def get_task(task_id: str):
     supabase = get_supabase_client()
     def op():
-        return supabase.from_("tasks").select("*").eq("task_id", task_id).single().execute()
+        return supabase.from_("task_card_view").select("*").eq("task_id", task_id).single().execute()
     return await safe_supabase_operation(op, "Failed to fetch task")
 
 async def update_task(
