@@ -13,6 +13,7 @@ from app.utils.logger import get_logger
 from app.models.schemas.organization_invite import OrganizationInviteInDB
 from app.models.schemas.task import TaskInDB
 from app.models.schemas.task_comment import TaskCommentInDB
+from app.models.schemas.bug import BugInDB, BugCommentInDB
 
 from app.services.organization_service import get_organization_name
 from app.services.user_service import get_user_details_by_username
@@ -248,6 +249,125 @@ async def send_task_comment_email(task_data: TaskCommentInDB):
 
     return {"success": True, "message": "Task comment email sent successfully"}
 
+@router.post("/send-bug-assignment-email")
+async def send_bug_assignment_email(bug_data: BugInDB):
+    """
+    Sends an email to notify a user that a bug has been assigned to them.
+    """
+    try:
+        assignee = bug_data.get("assignee")
+        if not assignee:
+            raise ValueError("Assignee username is required.")
+
+        user = await get_user_details_by_username(assignee)
+        email = user.get("email")
+        bug_title = bug_data.get("title") or "a new bug"
+        bug_id = bug_data.get("id")
+        org_id = bug_data.get("org_id")
+
+        assigned_by = bug_data.get("updated_by") or bug_data.get("reporter") or "a TasksMate user"
+        base_link = bug_data.get("invite_link") or default_web_link
+
+        if assignee == assigned_by:
+            return {"success": False, "message": "Self assignment - no mail sent."}
+
+        # Build detailed bug link
+        full_link = base_link
+        if not bug_data.get("invite_link") and bug_id:
+            full_link += f"/tester-zone/bugs/{bug_id}"
+            if org_id:
+                full_link += f"?org_id={org_id}"
+
+        subject = f"TasksMate - You've been assigned a bug"
+
+        greeting = f"<p>Hi <strong>{assignee}</strong>,</p>"
+        body = (
+            f"<strong>{assigned_by}</strong> just assigned you a new bug: <strong>{bug_title}</strong> on <strong>TasksMate</strong>.<br><br>"
+            f"You can now track its progress, collaborate, and mark it complete directly from your workspace.<br><br>"
+            f"<strong>Stay organized and productive!</strong><br>"
+            f"If you have any questions, feel free to reach out to your team or reply to this email."
+        )
+
+        html_content = generate_email_html(
+            title="Bug Assigned",
+            greeting=greeting,
+            body=body,
+            cta_text="View Bug",
+            cta_link=full_link,
+        )
+
+        return await send_mail_to_user(email, subject, html_content)
+
+    except Exception as e:
+        logger.error(f"Error sending bug assignment email: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to send bug assignment email.")
+
+@router.post("/send-bug-comment-email")
+async def send_bug_comment_email(bug_comment_data: BugCommentInDB):
+    """
+    Sends an email to notify users that they've been mentioned in a bug comment.
+    """
+    try:
+        # Check if there are mentions in the comment
+        if not bug_comment_data.get("mentions"):
+            return {"success": False, "message": "No mentions found in the bug comment."}
+
+        bug_title = bug_comment_data.get("bug_title") or "a bug"
+        bug_id = bug_comment_data.get("bug_id")
+        org_id = bug_comment_data.get("org_id")
+
+        commented_by = bug_comment_data.get("updated_by") or bug_comment_data.get("user_id") or "a TasksMate user"
+        base_link = bug_comment_data.get("invite_link") or default_web_link
+
+        # Build detailed bug link
+        full_link = base_link
+        if not bug_comment_data.get("invite_link") and bug_id:
+            full_link += f"/tester-zone/bugs/{bug_id}"
+            if org_id:
+                full_link += f"?org_id={org_id}"
+
+        for mention in bug_comment_data.get("mentions"):
+            try:
+                assignee = mention.get("username") or mention.get("email")
+                email = mention.get("email")
+                
+                if not email:
+                    continue
+
+                if assignee == commented_by:
+                    continue  # Skip self-mentions
+
+                subject = f"TasksMate - You've been mentioned in a bug comment"
+
+                greeting = f"<p>Hi <strong>{assignee}</strong>,</p>"
+                body = (
+                    f"<strong>{commented_by}</strong> just commented on a bug: <strong>{bug_title}</strong> on <strong>TasksMate</strong>.<br><br>"
+                    f"The comment reads: <br> <strong>{bug_comment_data.get('content')}</strong>.<br><br>"
+                    f"You can now track its progress, collaborate, and mark it complete directly from your workspace.<br><br>"
+                    f"<strong>Stay organized and productive!</strong><br>"
+                    f"If you have any questions, feel free to reach out to your team or reply to this email."
+                )
+
+                html_content = generate_email_html(
+                    title="Comment on Bug",
+                    greeting=greeting,
+                    body=body,
+                    cta_text="View Bug",
+                    cta_link=full_link,
+                )
+
+                await send_mail_to_user(email, subject, html_content)
+
+            except Exception as e:
+                logger.error(f"Error sending bug comment email to {assignee}: {str(e)}")
+                continue  # Continue with other mentions even if one fails
+            
+    except Exception as e:
+        logger.error(f"Error sending bug comment email: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to send bug comment email.")
+
+    return {"success": True, "message": "Bug comment email sent successfully"}
+
 
 def generate_email_html(title: str, greeting: str, body: str, cta_text: str, cta_link: str) -> str:
     year = datetime.now().year
@@ -316,4 +436,3 @@ def generate_email_html(title: str, greeting: str, body: str, cta_text: str, cta
     </body>
     </html>
     '''
-
