@@ -65,7 +65,7 @@ async def delete_attachment(
 ):
     """Delete a bug attachment."""
     try:
-        result = await delete_bug_attachment(bug_id, attachment_id, current_user["username"])
+        result = await delete_bug_attachment(attachment_id, current_user["username"])
         if not result or not result.data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
