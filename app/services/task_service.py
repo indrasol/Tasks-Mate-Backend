@@ -163,6 +163,11 @@ async def create_task(data: dict, user_name: Optional[str] = None, actor_display
 async def create_tracker_task(data: dict, user_name: Optional[str] = None, actor_display: Optional[str] = None) -> Dict[str, Any]:
     """Create a new task with history tracking."""
 
+    # Ensure we always have correct timestamps if not provided
+    created_at = datetime.datetime.utcnow().isoformat()
+    if "created_at" not in data:
+        data["created_at"] = created_at
+
     tracker_data = {}
 
     tracker_data["tracker_id"] = data["tracker_id"]
@@ -194,6 +199,37 @@ async def create_tracker_task(data: dict, user_name: Optional[str] = None, actor
             actor_display=actor_display,
         )
     return result
+
+
+async def delete_tracker_task(task_id: str, bug_id: str, user_id: Optional[str] = None, actor_display: Optional[str] = None) -> Dict[str, Any]:
+    """Delete a task and log 'deleted' before removal (so audit survives hard delete)."""
+    current_task = await get_task(task_id)
+    if not current_task or not current_task.data:
+        raise HTTPException(status_code=404, detail="Task not found")
+    before = current_task.data
+
+    changes: List[Dict[str, Any]] = []
+
+    changes.append({"field": "bug_id", "old": before["bug_id"], "new": None})
+    changes.append({"field": "tracker_id", "old": before["tracker_id"], "new": None})
+    
+
+    if user_id:
+        await record_history(
+            task_id=task_id,
+            action="updated",
+            created_by=user_id,
+            title=before.get("title"),
+            metadata=changes,  # keep small; you can include a few key fields if desired
+            actor_display=actor_display,
+        )
+
+    supabase = get_supabase_client()
+
+    def op():
+        return supabase.from_("test_tracker_tasks").delete().eq("task_id", task_id).eq("bug_id", bug_id).execute()
+
+    return await safe_supabase_operation(op, "Failed to delete task")
 
 async def get_task(task_id: str):
     supabase = get_supabase_client()

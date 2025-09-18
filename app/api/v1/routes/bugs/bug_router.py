@@ -1,4 +1,3 @@
-
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path, UploadFile, File
 
@@ -14,6 +13,7 @@ from app.services.bug_service import (
     create_bug_relation,
     search_bugs
 )
+from app.api.v1.routes.emails.email_routes import send_bug_assignment_email
 
 # Import sub-routers 
 from .comment_router import router as comment_router
@@ -54,7 +54,14 @@ async def create_new_bug(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to create bug"
             )
-        return result.data[0] if isinstance(result.data, list) else result.data
+        
+        # Send assignment email if bug has an assignee
+        created_bug = result.data[0] if isinstance(result.data, list) else result.data
+        if created_bug.get("assignee"):
+            await send_bug_assignment_email(created_bug)
+        
+        return created_bug
+        
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

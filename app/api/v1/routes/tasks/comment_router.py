@@ -42,14 +42,20 @@ async def create_comment(comment: TaskCommentCreate, user=Depends(verify_token),
     payload["created_by"] = user.get("username") or user.get("email") or user.get("id")
     
     try:
-        result = await create_task_comment(payload)
-        await send_task_comment_email(result.data[0])
+        result = await create_task_comment(payload)        
         if not result.data:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to create comment"
             )
-        return result.data[0]
+        # Send comment email if there are mentions
+        created_comment = result.data[0] if isinstance(result.data, list) else result.data
+        if created_comment.get("mentions"):
+            # Add bug_id and bug_title to the comment data for email
+            created_comment["task_id"] = task_id
+            await send_task_comment_email(created_comment)
+    
+        return created_comment
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -131,21 +137,34 @@ async def read_comment(comment_id: str, project_id: str, user=Depends(verify_tok
 @router.put("/{comment_id}", response_model=TaskCommentInDB)
 async def update_comment(comment_id: str, comment: TaskCommentUpdate, user=Depends(verify_token), role=Depends(project_rbac)):
     # Owners/Admins can edit any comment; others can only edit their own
-    if role not in ["owner", "admin"]:
-        existing = await get_task_comment(comment_id)
-        if not existing or not existing.data:
-            raise HTTPException(status_code=404, detail="Not found")
-        created_by = str(existing.data.get("created_by") or "").lower()
-        user_identifiers = {str(user.get("id") or "").lower(), str(user.get("username") or "").lower(), str(user.get("email") or "").lower()}
-        if created_by not in user_identifiers:
-            raise HTTPException(status_code=403, detail="Not authorized")
+    # if role not in ["owner", "admin"]:
+    existing = await get_task_comment(comment_id)
+    if not existing or not existing.data:
+        raise HTTPException(status_code=404, detail="Not found")
+    created_by = str(existing.data.get("created_by") or "").lower()
+    user_identifiers = {str(user.get("id") or "").lower(), str(user.get("username") or "").lower(), str(user.get("email") or "").lower()}
+    if created_by not in user_identifiers:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    existing_mentions = existing.data.get("mentions")
+
     payload = comment.dict(exclude_unset=True)
+
     # Keep legacy column in sync if `content` provided
     if payload.get("content"):
         payload.setdefault("comment", payload["content"]) 
+
     result = await update_task_comment(comment_id, payload)
-    await send_task_comment_email(result.data[0])
-    return result.data[0]
+
+    # Send comment email if there are mentions
+    created_comment = result.data[0] if isinstance(result.data, list) else result.data
+    if created_comment.get("mentions"):
+        # Check for changes in mentions compared to existing by comparing each element
+        mentions_changed = any(x not in existing_mentions for x in created_comment["mentions"]) or any(x not in created_comment["mentions"] for x in existing_mentions)
+        if mentions_changed:
+            await send_task_comment_email(created_comment.model_dump())
+    
+    return created_comment
 
 @router.delete("/{comment_id}")
 async def delete_comment(comment_id: str, user=Depends(verify_token), role=Depends(project_rbac)):
