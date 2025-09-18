@@ -3,6 +3,7 @@ from typing import List
 from app.services.auth_handler import verify_token
 from app.services.bug_service import create_bug_comment, get_bug_comments, update_bug_comment, delete_bug_comment
 from app.models.schemas.bug import BugCommentCreate, BugCommentUpdate, BugCommentInDB
+from app.api.v1.routes.emails.email_routes import send_bug_comment_email
 
 router = APIRouter(prefix="/comments", tags=["bug_comments"])
 
@@ -20,7 +21,15 @@ async def add_comment_to_bug(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to add comment"
             )
-        return result.data[0] if isinstance(result.data, list) else result.data
+        
+        # Send comment email if there are mentions
+        created_comment = result.data[0] if isinstance(result.data, list) else result.data
+        if created_comment.get("mentions"):
+            # Add bug_id and bug_title to the comment data for email
+            created_comment["bug_id"] = bug_id
+            await send_bug_comment_email(created_comment)
+        
+        return created_comment
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -51,6 +60,13 @@ async def update_comment(
 ):
     """Update a bug comment."""
     try:
+
+        existing = await get_bug_comment(comment_id)
+        if not existing or not existing.data:
+            raise HTTPException(status_code=404, detail="Not found")
+
+        existing_mentions = existing.data.get("mentions")
+
         result = await update_bug_comment(
             bug_id=bug_id,
             comment_id=comment_id,
@@ -62,7 +78,16 @@ async def update_comment(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Comment not found or update failed"
             )
-        return result.data[0] if isinstance(result.data, list) else result.data
+        # return result.data[0] if isinstance(result.data, list) else result.data
+        # Send comment email if there are mentions
+        created_comment = result.data[0] if isinstance(result.data, list) else result.data
+        if created_comment.get("mentions"):
+            # Check for changes in mentions compared to existing by comparing each element
+            mentions_changed = any(x not in existing_mentions for x in created_comment["mentions"]) or any(x not in created_comment["mentions"] for x in existing_mentions)
+            if mentions_changed:
+                await send_bug_comment_email(created_comment.model_dump())
+        
+        return created_comment
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
