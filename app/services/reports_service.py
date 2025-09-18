@@ -204,3 +204,102 @@ async def get_org_reports(filters: Dict[str, Any]) -> Dict[str, Any]:
 		},
 		"projects": result_projects,
 	}
+
+# --- Timesheets aggregation (derived from tasks) ---
+async def get_org_timesheets(filters: Dict[str, Any]) -> Dict[str, Any]:
+	org_id: str = filters.get("org_id")
+	if not org_id:
+		return {"users": []}
+
+	project_ids: Optional[List[str]] = _norm_list(filters.get("project_ids"))
+	member_ids: Optional[List[str]] = _norm_list(filters.get("member_ids"))
+	date_from: Optional[datetime] = filters.get("date_from")
+	date_to: Optional[datetime] = filters.get("date_to")
+	# Optional filter to narrow statuses in timesheets view
+	task_statuses: Optional[List[str]] = _norm_list(filters.get("task_statuses"))
+
+	# 1) Resolve projects in org
+	projects_cards = await get_all_org_projects(org_id)
+	all_project_ids = [p.project_id for p in projects_cards]
+	target_project_ids = project_ids or all_project_ids
+
+	# 2) Org members metadata
+	org_members = await get_members_for_org(org_id, limit=100000)
+	org_member_by_id: Dict[str, Dict[str, Any]] = {str(m.get("user_id")): m for m in org_members if m.get("user_id")}
+
+	# 3) Pull tasks from task_card_view for the projects/date range; group by assignee
+	supabase = get_supabase_client()
+
+	def tasks_op():
+		q = supabase.from_("task_card_view").select("*").in_("project_id", target_project_ids)
+		q = _between_or_all(q, "created_at", date_from, date_to)
+		if member_ids:
+			q = q.in_("assignee", member_ids)
+		if task_statuses:
+			q = q.in_("status", task_statuses)
+		return q.execute()
+
+	res = await safe_supabase_operation(tasks_op, "Failed to fetch tasks for timesheets")
+	rows: List[Dict[str, Any]] = res.data or []
+
+	# 4) Group tasks by user and status buckets
+	by_user: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
+	for r in rows:
+		assignee_raw = r.get("assignee")
+		if assignee_raw is None:
+			continue
+		uid = str(assignee_raw)
+		if uid not in by_user:
+			by_user[uid] = {"in_progress": [], "completed": [], "blockers": []}
+		item = {
+			"id": r.get("task_id") or r.get("id"),
+			"title": r.get("title"),
+			"project": r.get("project_name"),
+			"project_id": r.get("project_id"),
+			"hours_logged": None,
+			"status": r.get("status"),
+			"priority": r.get("priority"),
+		}
+		status = str(r.get("status") or "").lower()
+		if status in ("in_progress", "on_hold"):
+			by_user[uid]["in_progress"].append(item)
+		elif status in ("completed",):
+			by_user[uid]["completed"].append(item)
+		elif status in ("blocked",):
+			by_user[uid]["blockers"].append(item)
+		else:
+			by_user[uid]["in_progress"].append(item)
+
+	# 5) Build users output
+	users_out: List[Dict[str, Any]] = []
+	for uid, buckets in by_user.items():
+		meta = org_member_by_id.get(uid, {})
+		name = meta.get("username") or meta.get("email") or uid
+		email = meta.get("email")
+		role = meta.get("role")
+		designation = meta.get("designation")
+		users_out.append({
+			"user_id": uid,
+			"name": name,
+			"email": email,
+			"avatar_initials": (name or uid)[:2].upper(),
+			"role": role,
+			"designation": designation,
+			"total_hours_today": None,
+			"total_hours_week": None,
+			"in_progress": buckets.get("in_progress", [])[:10],
+			"completed": buckets.get("completed", [])[:10],
+			"blockers": buckets.get("blockers", [])[:10],
+		})
+
+	return {
+		"org_id": org_id,
+		"filters": {
+			"project_ids": target_project_ids,
+			"member_ids": member_ids or [],
+			"date_from": date_from.isoformat() if date_from else None,
+			"date_to": date_to.isoformat() if date_to else None,
+			"task_statuses": task_statuses or [],
+		},
+		"users": users_out,
+	}

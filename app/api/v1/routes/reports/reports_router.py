@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 from app.services.auth_handler import verify_token
 from app.api.v1.routes.organizations.org_rbac import org_rbac
-from app.services.reports_service import get_org_reports
+from app.services.reports_service import get_org_reports, get_org_timesheets
 
 router = APIRouter()
 
@@ -32,3 +32,16 @@ async def org_reports(payload: ReportsRequest, user=Depends(verify_token), role=
 		raise
 	except Exception as e:
 		raise HTTPException(status_code=500, detail=f"Failed to build reports: {str(e)}")
+
+class TimesheetsRequest(BaseModel):
+	filters: ReportsFilters
+
+@router.post("/timesheets", summary="Org-level timesheets", description="Per-user timesheet-style aggregation from tasks.")
+async def org_timesheets(payload: TimesheetsRequest, user=Depends(verify_token), role=Depends(org_rbac)) -> Dict[str, Any]:
+	try:
+		result = await get_org_timesheets(payload.filters.model_dump())
+		return result
+	except HTTPException:
+		raise
+	except Exception as e:
+		raise HTTPException(status_code=500, detail=f"Failed to build timesheets: {str(e)}")
