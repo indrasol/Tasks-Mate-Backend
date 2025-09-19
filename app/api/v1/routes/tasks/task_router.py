@@ -54,9 +54,14 @@ async def read_task(task_id: str, user=Depends(verify_token)):
 async def update_task_route(task_id: str, task: TaskUpdate, user=Depends(verify_token)):
     # if role not in ["owner", "admin"]:
     #     raise HTTPException(status_code=403, detail="Not authorized")
+    old_task = await get_task(task_id)
+    if not old_task.data:
+        raise HTTPException(status_code=404, detail="Not found")
+    old_task_data = old_task.data
+
     result = await update_task(task_id, {**task.dict(exclude_unset=True), "updated_by": user["username"]}, user["username"])
 
-    if task.assignee:
+    if task.assignee and task.assignee != old_task_data.get("assignee"):
         await send_task_assignment_email(result.data[0])
     
     return result.data[0]

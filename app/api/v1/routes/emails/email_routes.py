@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Email, To, Content
-from app.config.settings import SENDGRID_API_KEY
+from app.config.settings import EMAIL_TEST_MODE, EMAIL_TEST_REDIRECT, EMAIL_TEST_SUBJECT_PREFIX, SENDGRID_API_KEY
 from app.utils.logger import get_logger
 
 from app.models.schemas.organization_invite import OrganizationInviteInDB
@@ -31,55 +31,8 @@ from_email: Email = Email(default_sender, 'TasksMate Team')
 
 default_web_link:str = os.getenv("DEFAULT_WEB_LINK","https://tasksmate.indrasol.com")
 
-
 # class EmailValidator(BaseModel):
 #     email: EmailStr
-
-async def send_mail_to_user(email: str, subject: str, html_content: str):
-    try:
-        # ✅ Validate email format using Pydantic
-        # try:
-        #     EmailValidator(email=default_sender)
-        # except ValidationError:
-        #     logger.warning(f"Invalid email format: {default_sender}")
-        #     raise HTTPException(status_code=400, detail="Invalid email address format.")
-        
-
-        # # ✅ Validate email format using Pydantic
-        # try:
-        #     EmailValidator(email=email)
-        # except ValidationError:
-        #     logger.warning(f"Invalid email format: {email}")
-        #     raise HTTPException(status_code=400, detail="Invalid email address format.")
-
-        if not SENDGRID_API_KEY:
-            raise HTTPException(status_code=500, detail="SendGrid API key not configured.")
-
-        sg = SendGridAPIClient(SENDGRID_API_KEY)
-
-        message = Mail(
-            from_email=from_email,
-            to_emails=To(email),
-            subject=subject,
-            html_content=Content('text/html', html_content)
-        )
-
-        response = sg.send(message)
-        logger.info(f"SendGrid Status: {response.status_code}")
-        logger.debug(f"SendGrid Response Body: {response.body}")
-        logger.debug(f"SendGrid Response Headers: {response.headers}")
-
-        if response.status_code >= 400:
-            raise HTTPException(status_code=500, detail="Failed to send email via SendGrid.")
-
-        return {"success": True, "message": "Email sent successfully"}
-
-    except HTTPException:
-        # Allow explicit HTTP exceptions to propagate cleanly
-        raise
-    except Exception as e:
-        logger.error(f"Unexpected error sending email to {email} from {default_sender}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error sending email to {email} from {default_sender}: {e}")
 
 @router.post("/send-org-invite-email")
 async def send_org_invite_email(invite_data: OrganizationInviteInDB):
@@ -179,7 +132,6 @@ async def send_task_assignment_email(task_data: TaskInDB):
     except Exception as e:
         logger.error(f"Error sending task assignment email: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to send task assignment email.")
-
 
 @router.post("/send-task-comment-email")
 async def send_task_comment_email(task_data: TaskCommentInDB):
@@ -368,7 +320,6 @@ async def send_bug_comment_email(bug_comment_data: BugCommentInDB):
 
     return {"success": True, "message": "Bug comment email sent successfully"}
 
-
 def generate_email_html(title: str, greeting: str, body: str, cta_text: str, cta_link: str) -> str:
     year = datetime.now().year
     return f'''
@@ -436,3 +387,51 @@ def generate_email_html(title: str, greeting: str, body: str, cta_text: str, cta
     </body>
     </html>
     '''
+
+async def send_mail_to_user(email: str, subject: str, html_content: str):
+    try:
+        # In test mode: log the email payload (and optionally redirect the recipient), do not send
+        if EMAIL_TEST_MODE:
+            to_email = email or EMAIL_TEST_REDIRECT
+            logged_subject = f"{EMAIL_TEST_SUBJECT_PREFIX}{subject}".strip()
+            logger.info("Email Test Mode is ON - not sending real email")
+            logger.info(f"To: {to_email}")
+            logger.info(f"Subject: {logged_subject}")
+            # Keep the body log concise but useful
+            preview = (html_content[:1000] + "...") if len(html_content) > 1000 else html_content
+            logger.debug(f"HTML preview:\n{preview}")
+            return {
+                "success": True,
+                "message": "Email logged (test mode)",
+                "to": to_email
+            }
+
+        # Validate SendGrid configuration when actually sending
+        if not SENDGRID_API_KEY:
+            raise HTTPException(status_code=500, detail="SendGrid API key not configured.")
+
+        sg = SendGridAPIClient(SENDGRID_API_KEY)
+
+        message = Mail(
+            from_email=from_email,
+            to_emails=To(email),
+            subject=subject,
+            html_content=Content('text/html', html_content)
+        )
+
+        response = sg.send(message)
+        logger.info(f"SendGrid Status: {response.status_code}")
+        logger.debug(f"SendGrid Response Body: {response.body}")
+        logger.debug(f"SendGrid Response Headers: {response.headers}")
+
+        if response.status_code >= 400:
+            raise HTTPException(status_code=500, detail="Failed to send email via SendGrid.")
+
+        return {"success": True, "message": "Email sent successfully"}
+
+    except HTTPException:
+        # Allow explicit HTTP exceptions to propagate cleanly
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error sending email to {email} from {default_sender}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error sending email to {email} from {default_sender}: {e}")
