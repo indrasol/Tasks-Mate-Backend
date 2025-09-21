@@ -25,8 +25,6 @@ async def add_comment_to_bug(
         # Send comment email if there are mentions
         created_comment = result.data[0] if isinstance(result.data, list) else result.data
         if created_comment.get("mentions"):
-            # Add bug_id and bug_title to the comment data for email
-            created_comment["bug_id"] = bug_id
             await send_bug_comment_email(created_comment)
         
         return created_comment
