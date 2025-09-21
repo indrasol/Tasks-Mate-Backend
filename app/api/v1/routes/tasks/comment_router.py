@@ -51,8 +51,6 @@ async def create_comment(comment: TaskCommentCreate, user=Depends(verify_token),
         # Send comment email if there are mentions
         created_comment = result.data[0] if isinstance(result.data, list) else result.data
         if created_comment.get("mentions"):
-            # Add bug_id and bug_title to the comment data for email
-            created_comment["task_id"] = task_id
             await send_task_comment_email(created_comment)
     
         return created_comment
