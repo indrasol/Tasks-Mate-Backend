@@ -369,33 +369,83 @@ async def get_team_timesheets_summary(
         
         projects_with_members.append(project_info)
     
-    # 6. Also create a flat list of users for backward compatibility
+    # 6. Create a comprehensive flat list of ALL organization members (not just project members)
     all_users = []
     user_summaries = {}
     
+    # First, initialize all org members with their basic info and empty timesheet data
+    for org_member in org_members:
+        user_id = str(org_member.get("user_id"))
+        if user_id:
+            user_summaries[user_id] = {
+                "user_id": user_id,
+                "name": org_member.get("username") or org_member.get("email", "").split("@")[0] if org_member.get("email") else f"User {user_id}",
+                "email": org_member.get("email", ""),
+                "designation": org_member.get("designation"),
+                "avatar_initials": (org_member.get("username") or org_member.get("email", "") or str(user_id))[:2].upper(),
+                "role": org_member.get("role", "member"),
+                "total_hours_today": 0,
+                "total_hours_week": 0,
+                "in_progress": [],
+                "completed": [],
+                "blockers": []
+            }
+    
+    # Then, overlay project-specific timesheet data for members who have project assignments
     for project in projects_with_members:
         for member in project["members"]:
             user_id = member["user_id"]
             
-            if user_id not in user_summaries:
-                user_summaries[user_id] = {
-                    "user_id": user_id,
-                    "name": member["name"],
-                    "email": member["email"],
-                    "designation": member["designation"],
-                    "avatar_initials": member["avatar_initials"],
-                    "role": member["org_role"],
-                    "total_hours_today": 0,
-                    "total_hours_week": 0,
-                    "in_progress": [],
-                    "completed": [],
-                    "blockers": []
-                }
+            if user_id in user_summaries:
+                # Aggregate tasks from all projects for this user
+                user_summaries[user_id]["in_progress"].extend(member["in_progress"])
+                user_summaries[user_id]["completed"].extend(member["completed"])
+                user_summaries[user_id]["blockers"].extend(member["blockers"])
+    
+    # Finally, check for any direct timesheet entries for users not assigned to projects
+    # This handles cases where users might have timesheet data but no project assignments
+    for timesheet_entry in (timesheet_result.data or []):
+        user_id = str(timesheet_entry.get("user_id"))
+        if user_id in user_summaries:
+            # Check if this user already has data from project assignments
+            has_existing_data = (
+                len(user_summaries[user_id]["in_progress"]) > 0 or
+                len(user_summaries[user_id]["completed"]) > 0 or
+                len(user_summaries[user_id]["blockers"]) > 0
+            )
             
-            # Aggregate tasks from all projects for this user
-            user_summaries[user_id]["in_progress"].extend(member["in_progress"])
-            user_summaries[user_id]["completed"].extend(member["completed"])
-            user_summaries[user_id]["blockers"].extend(member["blockers"])
+            # If no existing project-based data, add direct timesheet data
+            if not has_existing_data:
+                # Parse direct timesheet data
+                if timesheet_entry.get("in_progress"):
+                    for line in timesheet_entry["in_progress"].split("\n"):
+                        if line.strip():
+                            user_summaries[user_id]["in_progress"].append({
+                                "id": f"ip-{len(user_summaries[user_id]['in_progress'])}",
+                                "title": line.strip().lstrip("• "),
+                                "project": "General",
+                                "hours_logged": 0
+                            })
+                
+                if timesheet_entry.get("completed"):
+                    for line in timesheet_entry["completed"].split("\n"):
+                        if line.strip():
+                            user_summaries[user_id]["completed"].append({
+                                "id": f"comp-{len(user_summaries[user_id]['completed'])}",
+                                "title": line.strip().lstrip("• "),
+                                "project": "General",
+                                "hours_logged": 0
+                            })
+                
+                if timesheet_entry.get("blocked"):
+                    for line in timesheet_entry["blocked"].split("\n"):
+                        if line.strip():
+                            user_summaries[user_id]["blockers"].append({
+                                "id": f"block-{len(user_summaries[user_id]['blockers'])}",
+                                "title": line.strip().lstrip("• "),
+                                "project": "General",
+                                "blocked_reason": "See timesheet notes"
+                            })
     
     all_users = list(user_summaries.values())
     
