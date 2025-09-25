@@ -13,15 +13,18 @@ CREATE TABLE public.bug_activity_logs (
   CONSTRAINT bug_activity_logs_bug_id_fkey FOREIGN KEY (bug_id) REFERENCES public.bugs(id)
 );
 CREATE TABLE public.bug_attachments (
-  id text NOT NULL,
+  attachment_id text NOT NULL,
   bug_id text NOT NULL,
-  user_id text NOT NULL,
-  file_name text NOT NULL,
-  file_path text NOT NULL,
-  file_type text,
-  file_size integer,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT bug_attachments_pkey PRIMARY KEY (id),
+  title text,
+  name text,
+  url text,
+  uploaded_by text,
+  uploaded_at timestamp with time zone DEFAULT now(),
+  deleted_at timestamp with time zone,
+  deleted_by text,
+  is_inline boolean DEFAULT false,
+  storage_path text,
+  CONSTRAINT bug_attachments_pkey PRIMARY KEY (attachment_id),
   CONSTRAINT bug_attachments_bug_id_fkey FOREIGN KEY (bug_id) REFERENCES public.bugs(id)
 );
 CREATE TABLE public.bug_comments (
@@ -40,7 +43,7 @@ CREATE TABLE public.bug_relations (
   relation_type text NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
   created_by text NOT NULL,
-  CONSTRAINT bug_relations_pkey PRIMARY KEY (source_bug_id, target_bug_id, relation_type),
+  CONSTRAINT bug_relations_pkey PRIMARY KEY (relation_type, source_bug_id, target_bug_id),
   CONSTRAINT bug_relations_source_bug_id_fkey FOREIGN KEY (source_bug_id) REFERENCES public.bugs(id),
   CONSTRAINT bug_relations_target_bug_id_fkey FOREIGN KEY (target_bug_id) REFERENCES public.bugs(id)
 );
@@ -48,7 +51,7 @@ CREATE TABLE public.bug_watchers (
   bug_id text NOT NULL,
   user_id text NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT bug_watchers_pkey PRIMARY KEY (bug_id, user_id),
+  CONSTRAINT bug_watchers_pkey PRIMARY KEY (user_id, bug_id),
   CONSTRAINT bug_watchers_bug_id_fkey FOREIGN KEY (bug_id) REFERENCES public.bugs(id)
 );
 CREATE TABLE public.bugs (
@@ -78,6 +81,22 @@ CREATE TABLE public.bugs (
   CONSTRAINT bugs_pkey PRIMARY KEY (id),
   CONSTRAINT bugs_tracker_id_fkey FOREIGN KEY (tracker_id) REFERENCES public.test_trackers(tracker_id),
   CONSTRAINT bugs_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(project_id)
+);
+CREATE TABLE public.daily_timesheets (
+  id bigint NOT NULL DEFAULT nextval('daily_timesheets_id_seq'::regclass),
+  org_id text NOT NULL,
+  project_id text NOT NULL,
+  user_id uuid NOT NULL,
+  entry_date date NOT NULL DEFAULT CURRENT_DATE,
+  in_progress text,
+  completed text,
+  blocked text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT daily_timesheets_pkey PRIMARY KEY (id),
+  CONSTRAINT daily_timesheets_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(org_id),
+  CONSTRAINT daily_timesheets_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(project_id),
+  CONSTRAINT daily_timesheets_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id)
 );
 CREATE TABLE public.designations (
   metadata jsonb DEFAULT '{}'::jsonb,
@@ -323,7 +342,7 @@ CREATE TABLE public.test_tracker_tasks (
   task_id text NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
   bug_id text NOT NULL,
-  CONSTRAINT test_tracker_tasks_pkey PRIMARY KEY (tracker_id, task_id, bug_id),
+  CONSTRAINT test_tracker_tasks_pkey PRIMARY KEY (task_id, bug_id, tracker_id),
   CONSTRAINT test_tracker_tasks_tracker_id_fkey FOREIGN KEY (tracker_id) REFERENCES public.test_trackers(tracker_id),
   CONSTRAINT test_tracker_tasks_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(task_id),
   CONSTRAINT test_tracker_tasks_bug_id_fkey FOREIGN KEY (bug_id) REFERENCES public.bugs(id)
@@ -350,6 +369,15 @@ CREATE TABLE public.test_trackers (
   CONSTRAINT test_trackers_pkey PRIMARY KEY (tracker_id),
   CONSTRAINT test_trackers_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(org_id),
   CONSTRAINT test_trackers_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(project_id)
+);
+CREATE TABLE public.user_profiles (
+  id uuid NOT NULL,
+  email text,
+  username text,
+  created_at timestamp with time zone,
+  updated_at timestamp with time zone,
+  CONSTRAINT user_profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT user_profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.users (
   id uuid NOT NULL,
