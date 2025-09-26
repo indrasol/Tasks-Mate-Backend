@@ -25,6 +25,8 @@ from app.api.v1.routes.feedback.feedback_router import router as feedback_router
 from app.api.v1.routes.users.avatar_router import router as avatar_router
 from app.api.v1.routes.reports.reports_router import router as reports_router
 from app.api.v1.routes.timesheets.daily_timesheet_router import router as daily_timesheet_router
+from app.api.v1.routes.timesheets.user_timesheet_router import router as user_timesheet_router
+from app.api.v1.routes.organizations.organization_profile_router import router as organization_profile_router
 
 
 router = APIRouter()
@@ -54,3 +56,5 @@ router.include_router(feedback_router, prefix="/feedback", tags=["Feedback"])
 router.include_router(avatar_router, prefix="/users/avatar", tags=["User Avatar"])
 router.include_router(reports_router, prefix="/reports", tags=["Reports"])
 router.include_router(daily_timesheet_router, prefix="/daily-timesheets", tags=["Daily Timesheets"])
+router.include_router(user_timesheet_router, prefix="/user-timesheets", tags=["User Timesheets"])
+router.include_router(organization_profile_router, prefix="/organizations/profile", tags=["Organization Profile"])
