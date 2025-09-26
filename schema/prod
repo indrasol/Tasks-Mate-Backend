@@ -43,7 +43,7 @@ CREATE TABLE public.bug_relations (
   relation_type text NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
   created_by text NOT NULL,
-  CONSTRAINT bug_relations_pkey PRIMARY KEY (relation_type, source_bug_id, target_bug_id),
+  CONSTRAINT bug_relations_pkey PRIMARY KEY (target_bug_id, relation_type, source_bug_id),
   CONSTRAINT bug_relations_source_bug_id_fkey FOREIGN KEY (source_bug_id) REFERENCES public.bugs(id),
   CONSTRAINT bug_relations_target_bug_id_fkey FOREIGN KEY (target_bug_id) REFERENCES public.bugs(id)
 );
@@ -79,8 +79,8 @@ CREATE TABLE public.bugs (
   updated_at timestamp with time zone DEFAULT now(),
   closed_at timestamp with time zone,
   CONSTRAINT bugs_pkey PRIMARY KEY (id),
-  CONSTRAINT bugs_tracker_id_fkey FOREIGN KEY (tracker_id) REFERENCES public.test_trackers(tracker_id),
-  CONSTRAINT bugs_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(project_id)
+  CONSTRAINT bugs_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(project_id),
+  CONSTRAINT bugs_tracker_id_fkey FOREIGN KEY (tracker_id) REFERENCES public.test_trackers(tracker_id)
 );
 CREATE TABLE public.daily_timesheets (
   id bigint NOT NULL DEFAULT nextval('daily_timesheets_id_seq'::regclass),
@@ -99,6 +99,7 @@ CREATE TABLE public.daily_timesheets (
   CONSTRAINT daily_timesheets_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id)
 );
 CREATE TABLE public.designations (
+  name USER-DEFINED NOT NULL,
   metadata jsonb DEFAULT '{}'::jsonb,
   created_by uuid,
   updated_by uuid,
@@ -106,7 +107,6 @@ CREATE TABLE public.designations (
   updated_at timestamp with time zone DEFAULT now(),
   designation_id text NOT NULL,
   slug USER-DEFINED,
-  name USER-DEFINED,
   CONSTRAINT designations_pkey PRIMARY KEY (designation_id)
 );
 CREATE TABLE public.feedback (
@@ -153,8 +153,32 @@ CREATE TABLE public.organization_members (
   email text,
   username text,
   updated_by text,
-  CONSTRAINT organization_members_pkey PRIMARY KEY (user_id, org_id),
+  CONSTRAINT organization_members_pkey PRIMARY KEY (org_id, user_id),
   CONSTRAINT organization_members_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(org_id)
+);
+CREATE TABLE public.organization_profile (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  org_id text NOT NULL UNIQUE,
+  vision text,
+  mission text,
+  core_values jsonb DEFAULT '[]'::jsonb,
+  company_culture text,
+  founding_year integer CHECK (founding_year >= 1800 AND founding_year::numeric <= EXTRACT(year FROM now())),
+  industry text,
+  company_size text CHECK (company_size = ANY (ARRAY['startup'::text, 'small'::text, 'medium'::text, 'large'::text, 'enterprise'::text])),
+  headquarters text,
+  website_url text,
+  sustainability_goals text,
+  diversity_commitment text,
+  community_involvement text,
+  last_updated_by uuid,
+  created_by uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT organization_profile_pkey PRIMARY KEY (id),
+  CONSTRAINT organization_profile_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(org_id),
+  CONSTRAINT organization_profile_last_updated_by_fkey FOREIGN KEY (last_updated_by) REFERENCES auth.users(id),
+  CONSTRAINT organization_profile_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 );
 CREATE TABLE public.organizations (
   name text NOT NULL,
@@ -187,9 +211,9 @@ CREATE TABLE public.organizations_history (
   designations ARRAY,
   org_id text,
   created_by text,
+  updated_by text,
   deleted_by text,
-  is_deleted boolean,
-  updated_by text
+  is_deleted boolean
 );
 CREATE TABLE public.project_members (
   project_id text NOT NULL,
@@ -204,7 +228,7 @@ CREATE TABLE public.project_members (
   designation USER-DEFINED,
   role USER-DEFINED,
   username text,
-  CONSTRAINT project_members_pkey PRIMARY KEY (project_id, user_id),
+  CONSTRAINT project_members_pkey PRIMARY KEY (user_id, project_id),
   CONSTRAINT project_members_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(project_id)
 );
 CREATE TABLE public.project_resources (
@@ -319,8 +343,8 @@ CREATE TABLE public.tasks (
   org_id text,
   is_subtask boolean DEFAULT false,
   CONSTRAINT tasks_pkey PRIMARY KEY (task_id),
-  CONSTRAINT tasks_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(org_id),
-  CONSTRAINT tasks_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(project_id)
+  CONSTRAINT tasks_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(project_id),
+  CONSTRAINT tasks_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(org_id)
 );
 CREATE TABLE public.tasks_history (
   task_id text NOT NULL,
@@ -342,9 +366,9 @@ CREATE TABLE public.test_tracker_tasks (
   task_id text NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
   bug_id text NOT NULL,
-  CONSTRAINT test_tracker_tasks_pkey PRIMARY KEY (task_id, bug_id, tracker_id),
-  CONSTRAINT test_tracker_tasks_tracker_id_fkey FOREIGN KEY (tracker_id) REFERENCES public.test_trackers(tracker_id),
+  CONSTRAINT test_tracker_tasks_pkey PRIMARY KEY (tracker_id, task_id, bug_id),
   CONSTRAINT test_tracker_tasks_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(task_id),
+  CONSTRAINT test_tracker_tasks_tracker_id_fkey FOREIGN KEY (tracker_id) REFERENCES public.test_trackers(tracker_id),
   CONSTRAINT test_tracker_tasks_bug_id_fkey FOREIGN KEY (bug_id) REFERENCES public.bugs(id)
 );
 CREATE TABLE public.test_trackers (
@@ -369,6 +393,19 @@ CREATE TABLE public.test_trackers (
   CONSTRAINT test_trackers_pkey PRIMARY KEY (tracker_id),
   CONSTRAINT test_trackers_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(org_id),
   CONSTRAINT test_trackers_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(project_id)
+);
+CREATE TABLE public.user_daily_timesheets (
+  id integer NOT NULL DEFAULT nextval('user_daily_timesheets_id_seq'::regclass),
+  org_id text NOT NULL,
+  user_id uuid NOT NULL,
+  entry_date date NOT NULL,
+  timesheet_data jsonb NOT NULL DEFAULT '{}'::jsonb,
+  has_data boolean DEFAULT (((timesheet_data ? 'in_progress'::text) AND (jsonb_array_length(COALESCE((timesheet_data -> 'in_progress'::text), '[]'::jsonb)) > 0)) OR ((timesheet_data ? 'completed'::text) AND (jsonb_array_length(COALESCE((timesheet_data -> 'completed'::text), '[]'::jsonb)) > 0)) OR ((timesheet_data ? 'blocked'::text) AND (jsonb_array_length(COALESCE((timesheet_data -> 'blocked'::text), '[]'::jsonb)) > 0))),
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT user_daily_timesheets_pkey PRIMARY KEY (id),
+  CONSTRAINT user_daily_timesheets_org_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(org_id),
+  CONSTRAINT user_daily_timesheets_user_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.user_profiles (
   id uuid NOT NULL,
