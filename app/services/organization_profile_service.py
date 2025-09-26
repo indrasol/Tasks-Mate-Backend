@@ -40,6 +40,12 @@ class OrganizationProfileService:
             
             if result.data and len(result.data) > 0:
                 profile_data = result.data[0]
+
+                # Convert created_at and updated_at to ISO format
+                if profile_data.get('created_at'):
+                    profile_data['created_at'] = datetime.fromisoformat(profile_data['created_at']).isoformat()
+                if profile_data.get('updated_at'):
+                    profile_data['updated_at'] = datetime.fromisoformat(profile_data['updated_at']).isoformat()
                 
                 # Parse core_values JSON if it exists
                 if profile_data.get('core_values'):
@@ -74,8 +80,8 @@ class OrganizationProfileService:
                         'sustainability_goals': None,
                         'diversity_commitment': None,
                         'community_involvement': None,
-                        'created_at': datetime.utcnow(),
-                        'updated_at': datetime.utcnow()
+                        'created_at': datetime.utcnow().isoformat(),
+                        'updated_at': datetime.utcnow().isoformat()
                     }
                 }
                 
@@ -121,6 +127,23 @@ class OrganizationProfileService:
                         # Ensure created_at timestamp
                         if not value.get('created_at'):
                             value['created_at'] = datetime.utcnow().isoformat()
+                        else:
+                            # Convert to ISO format if it's a string
+                            if isinstance(value['created_at'], str):
+                                value['created_at'] = datetime.fromisoformat(value['created_at']).isoformat()
+                            else:
+                                value['created_at'] = value['created_at'].isoformat()
+
+                        # Ensure updated_at timestamp
+                        if not value.get('updated_at'):
+                            value['updated_at'] = datetime.utcnow().isoformat()
+                        else:
+                            # Convert to ISO format if it's a string
+                            if isinstance(value['updated_at'], str):
+                                value['updated_at'] = datetime.fromisoformat(value['updated_at']).isoformat()
+                            else:
+                                value['updated_at'] = value['updated_at'].isoformat()   
+
                         # Set order based on position
                         value['order'] = i + 1
                         processed_values.append(value)
