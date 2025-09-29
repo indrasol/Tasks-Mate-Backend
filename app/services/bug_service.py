@@ -265,6 +265,21 @@ async def get_bug_comments(bug_id: str) -> List[Dict[str, Any]]:
     result = await safe_supabase_operation(op, "Failed to fetch comments")
     return result.data if result.data else []
 
+async def get_bug_comment(comment_id: str) -> List[Dict[str, Any]]:
+    """Get all comments for a bug."""
+    supabase = get_supabase_client()
+    
+    def op():
+        return supabase.from_("bug_comments") \
+                     .select("*") \
+                     .eq("id", comment_id) \
+                     .execute()
+    
+    result = await safe_supabase_operation(op, "Failed to fetch comments")
+
+    # send only first record if present
+    return result.data if result.data else []
+
 async def delete_bug_comment(bug_id: str, comment_id: str, username: str) -> bool:
     """Delete Bug Comment."""
     supabase = get_supabase_client()
