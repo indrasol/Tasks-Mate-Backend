@@ -159,13 +159,28 @@ async def update_bug_by_id(
         )
     
     try:
+
+        existing = await get_bug(bug_id)
+        if not existing:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Bug not found"
+            )        
+
         result = await update_bug(bug_id, bug_update, current_user["username"])
         if not result or not result.data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Bug not found or update failed"
             )
-        return result.data[0] if isinstance(result.data, list) else result.data
+        # Send assignment email if bug has an assignee
+        updated_bug = result.data[0] if isinstance(result.data, list) else result.data
+        # Check for changes in assignee compared to existing
+        assignee_changed = existing.get("assignee") != updated_bug.get("assignee")
+        if assignee_changed:
+            await send_bug_assignment_email(updated_bug)
+        
+        return updated_bug
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

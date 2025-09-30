@@ -166,7 +166,7 @@ async def send_task_comment_email(task_data: TaskCommentInDB):
                 
 
                 if assignee == invited_by:
-                    return {"success": False, "message": "Self assignment - no mail sent."}
+                    continue
 
                 
 
@@ -189,7 +189,7 @@ async def send_task_comment_email(task_data: TaskCommentInDB):
                     cta_link=full_link,
                 )
 
-                return await send_mail_to_user(email, subject, html_content)
+                await send_mail_to_user(email, subject, html_content)
 
             except Exception as e:
                 logger.error(f"Error sending task assignment email: {str(e)}")
