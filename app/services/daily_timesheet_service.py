@@ -272,22 +272,26 @@ async def get_team_timesheets_summary(
         project_members_map[project.project_id] = {str(m.get("user_id")): m for m in project_members if m.get("user_id")}
     
     # 4. Fetch timesheet data for the specific date
-    def timesheet_op():
-        query = supabase.from_("daily_timesheets").select("""
-            user_id,
-            project_id,
-            in_progress,
-            completed,
-            blocked
-        """).eq("org_id", org_id).eq("entry_date", date_str)
+    # def timesheet_op():
+    #     query = supabase.from_("daily_timesheets").select("""
+    #         user_id,
+    #         project_id,
+    #         in_progress,
+    #         completed,
+    #         blocked
+    #     """).eq("org_id", org_id).eq("entry_date", date_str)
         
-        if project_ids:
-            query = query.in_("project_id", project_ids)
+    #     if project_ids:
+    #         query = query.in_("project_id", project_ids)
         
-        return query.execute()
+    #     return query.execute()
     
-    timesheet_result = await safe_supabase_operation(timesheet_op, "Failed to fetch team timesheets summary")
+    # timesheet_result = await safe_supabase_operation(timesheet_op, "Failed to fetch team timesheets summary")
     
+    timesheet_result = {
+        "data": []
+    }
+
     # Create timesheet data map for quick lookup
     timesheet_by_user_project = {}
     for item in (timesheet_result.data or []):
