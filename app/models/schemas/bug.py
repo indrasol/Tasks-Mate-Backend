@@ -77,15 +77,19 @@ class BugCommentBase(BaseModel):
     content: str = Field(..., min_length=1, description="The comment content")
 
 class BugCommentCreate(BugCommentBase):
-    pass
+    mentions: Optional[List[Dict[str, Any]]] = Field(default_factory=list, description="List of mentioned users")
+    org_id: Optional[str] = Field(None, description="Organization ID")
 
 class BugCommentUpdate(BugCommentBase):
-    pass
+    mentions: Optional[List[Dict[str, Any]]] = Field(default_factory=list, description="List of mentioned users")
+    org_id: Optional[str] = Field(None, description="Organization ID")
 
 class BugCommentInDB(BugCommentBase):
     id: str
     bug_id: str
     user_id: str
+    mentions: Optional[List[Dict[str, Any]]] = Field(default_factory=list, description="List of mentioned users")
+    org_id: Optional[str] = Field(None, description="Organization ID")
     created_at: datetime
     updated_at: Optional[datetime] = None
 

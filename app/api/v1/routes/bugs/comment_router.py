@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from app.services.auth_handler import verify_token
-from app.services.bug_service import create_bug_comment, get_bug_comments, update_bug_comment, delete_bug_comment
+from app.services.bug_service import create_bug_comment, get_bug_comments, get_bug_comment, update_bug_comment, delete_bug_comment
 from app.models.schemas.bug import BugCommentCreate, BugCommentUpdate, BugCommentInDB
 from app.api.v1.routes.emails.email_routes import send_bug_comment_email
 
@@ -59,11 +59,12 @@ async def update_comment(
     """Update a bug comment."""
     try:
 
-        existing = await get_bug_comment(comment_id)
-        if not existing or not existing.data:
+        result = await get_bug_comment(comment_id)
+        existing = result[0] if isinstance(result, list) else result
+        if not existing:
             raise HTTPException(status_code=404, detail="Not found")
 
-        existing_mentions = existing.data.get("mentions")
+        existing_mentions = existing.get("mentions")
 
         result = await update_bug_comment(
             bug_id=bug_id,
@@ -83,7 +84,7 @@ async def update_comment(
             # Check for changes in mentions compared to existing by comparing each element
             mentions_changed = any(x not in existing_mentions for x in created_comment["mentions"]) or any(x not in created_comment["mentions"] for x in existing_mentions)
             if mentions_changed:
-                await send_bug_comment_email(created_comment.model_dump())
+                await send_bug_comment_email(created_comment)
         
         return created_comment
     except Exception as e:
