@@ -74,6 +74,9 @@ async def create_goal(
             visibility=goal.get('visibility') or 'org',
             progress=0,
             assignees=payload.assignees or [],
+            category=goal.get('category') or [],
+            subCategory=goal.get('sub_category') or [],
+            sectionId=goal.get('section_id'),
             createdBy=str(goal.get('created_by')),
             createdAt=goal.get('created_at'),
             updatedAt=goal.get('updated_at'),
@@ -86,7 +89,7 @@ async def create_goal(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("{goal_id}", response_model=GoalOut)
+@router.get("/{goal_id}", response_model=GoalOut)
 async def get_goal(
     goal_id: str = Path(...),
     org_id: str = Query(...),
@@ -108,7 +111,7 @@ async def get_goal(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.patch("{goal_id}", response_model=GoalOut)
+@router.put("/{goal_id}", response_model=GoalOut)
 async def update_goal(
     goal_id: str,
     payload: GoalUpdate,
@@ -133,7 +136,7 @@ async def update_goal(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("{goal_id}")
+@router.delete("/{goal_id}")
 async def delete_goal(
     goal_id: str,
     org_id: str = Query(...),
@@ -152,7 +155,7 @@ async def delete_goal(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("{goal_id}/updates")
+@router.post("/{goal_id}/updates")
 async def add_goal_update(
     goal_id: str,
     payload: GoalUpdateCreate,
@@ -173,7 +176,7 @@ async def add_goal_update(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("{goal_id}/updates")
+@router.get("/{goal_id}/updates")
 async def list_goal_updates(
     goal_id: str,
     org_id: str = Query(...),
@@ -191,5 +194,78 @@ async def list_goal_updates(
         logger.error(f"Error listing goal updates: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("-sections")
+async def list_sections(
+    org_id: str = Query(...),
+    user=Depends(verify_token),
+    org_role=Depends(org_rbac)
+):
+    try:
+        if org_role not in ['member', 'admin', 'owner']:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        rows = await GoalService.list_sections(org_id)
+        return rows
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error listing goal sections: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("-sections")
+async def create_section(
+    body: dict,
+    org_id: str = Query(...),
+    user=Depends(verify_token),
+    org_role=Depends(org_rbac)
+):
+    try:
+        if org_role not in ['admin', 'owner']:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        title = (body or {}).get('title') or ''
+        order = int((body or {}).get('order') or 0)
+        row = await GoalService.create_section(org_id, title, order)
+        return row
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating goal section: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("-sections/{section_id}")
+async def update_section(
+    section_id: str = Path(...),
+    body: dict = {},
+    org_id: str = Query(...),
+    user=Depends(verify_token),
+    org_role=Depends(org_rbac)
+):
+    try:
+        if org_role not in ['admin', 'owner']:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        row = await GoalService.update_section(org_id, section_id, body or {})
+        return row
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating goal section: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("-sections/{section_id}")
+async def delete_section(
+    section_id: str = Path(...),
+    org_id: str = Query(...),
+    user=Depends(verify_token),
+    org_role=Depends(org_rbac)
+):
+    try:
+        if org_role not in ['admin', 'owner']:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        await GoalService.delete_section(org_id, section_id)
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting goal section: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
