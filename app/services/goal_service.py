@@ -67,10 +67,10 @@ class GoalService:
                     if gid not in latest_by_goal:
                         latest_by_goal[gid] = int(row.get('progress') or 0)
 
-                def get_assignments():
-                    return supabase.from_("goal_assignments").select("goal_id, user_id, role").in_("goal_id", goal_ids).execute()
+                def get_assignees():
+                    return supabase.from_("goal_assignees").select("goal_id, user_id").in_("goal_id", goal_ids).execute()
 
-                assignments = await safe_supabase_operation(get_assignments, "Failed to get assignments")
+                assignments = await safe_supabase_operation(get_assignees, "Failed to get assignees")
                 for row in (assignments.data or []):
                     gid = row.get('goal_id')
                     if user_id and str(row.get('user_id')) != str(user_id):
@@ -78,7 +78,6 @@ class GoalService:
                         continue
                     assignees_by_goal.setdefault(gid, []).append({
                         'userId': str(row.get('user_id')),
-                        'role': row.get('role') or 'viewer'
                     })
 
             # If user filter is set, drop items without assignments for that user
@@ -99,6 +98,9 @@ class GoalService:
                     'visibility': g.get('visibility') or 'org',
                     'progress': latest_by_goal.get(g.get('id'), 0),
                     'assignees': assignees_by_goal.get(g.get('id'), []),
+                    'category': g.get('category') or [],
+                    'subCategory': g.get('sub_category') or [],
+                    'sectionId': g.get('section_id'),
                     'createdBy': g.get('created_by'),
                     'createdAt': g.get('created_at'),
                     'updatedAt': g.get('updated_at'),
@@ -138,6 +140,9 @@ class GoalService:
                     'start_date': to_iso(payload.get('startDate')),
                     'due_date': to_iso(payload.get('dueDate')),
                     'visibility': payload.get('visibility', 'org'),
+                    'category': payload.get('category') or [],
+                    'sub_category': payload.get('subCategory') or [],
+                    'section_id': payload.get('sectionId'),
                     'created_by': user_id,
                     'created_at': now,
                     'updated_at': now,
@@ -157,15 +162,15 @@ class GoalService:
             else:
                 goal = goal_data
 
-            # Assign assignees if provided
+            # Assign assignees if provided (no roles)
             assignees = payload.get('assignees') or []
             rows = []
             for a in assignees:
-                rows.append({'goal_id': goal['id'], 'user_id': a.get('userId'), 'role': a.get('role') or 'owner'})
+                rows.append({'goal_id': goal['id'], 'user_id': a.get('userId')})
 
             if rows:
                 def insert_assign():
-                    return supabase.from_("goal_assignments").insert(rows).execute()
+                    return supabase.from_("goal_assignees").insert(rows).execute()
                 await safe_supabase_operation(insert_assign, "Failed to insert assignments")
 
             return goal
@@ -189,7 +194,7 @@ class GoalService:
                 update_data['updated_at'] = datetime.utcnow().isoformat()
 
                 def do_update():
-                    return supabase.from_("goals").update(update_data).eq('id', goal_id).eq('org_id', org_id).select('*').single().execute()
+                    return supabase.from_("goals").update(update_data).eq('id', goal_id).eq('org_id', org_id).execute()
 
                 res = await safe_supabase_operation(do_update, "Failed to update goal")
                 updated = res.data
@@ -203,19 +208,57 @@ class GoalService:
             # Update assignments if provided
             if 'assignees' in payload and isinstance(payload.get('assignees'), list):
                 def del_assign():
-                    return supabase.from_("goal_assignments").delete().eq('goal_id', goal_id).execute()
+                    return supabase.from_("goal_assignees").delete().eq('goal_id', goal_id).execute()
                 await safe_supabase_operation(del_assign, "Failed to clear assignments")
 
-                new_rows = [{'goal_id': goal_id, 'user_id': a.get('userId'), 'role': a.get('role') or 'viewer'} for a in payload.get('assignees')]
+                new_rows = [{'goal_id': goal_id, 'user_id': a.get('userId')} for a in payload.get('assignees')]
                 if new_rows:
                     def ins_assign():
-                        return supabase.from_("goal_assignments").insert(new_rows).execute()
+                        return supabase.from_("goal_assignees").insert(new_rows).execute()
                     await safe_supabase_operation(ins_assign, "Failed to set assignments")
 
             return updated
         except Exception as e:
             logger.error(f"Error updating goal: {str(e)}")
             raise
+
+    @staticmethod
+    async def list_sections(org_id: str) -> List[Dict[str, Any]]:
+        supabase = get_supabase_client()
+        def do_list():
+            return supabase.from_("goal_sections").select("*").eq("org_id", org_id).order("order", desc=False).execute()
+        res = await safe_supabase_operation(do_list, "Failed to list sections")
+        return res.data or []
+
+    @staticmethod
+    async def create_section(org_id: str, title: str, order: int = 0) -> Dict[str, Any]:
+        supabase = get_supabase_client()
+        def do_insert():
+            return supabase.from_("goal_sections").insert({
+                'org_id': org_id, 'title': title, 'order': order
+            }).execute()
+        res = await safe_supabase_operation(do_insert, "Failed to create section")
+        return res.data
+
+    @staticmethod
+    async def update_section(org_id: str, section_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        supabase = get_supabase_client()
+        update_data: Dict[str, Any] = {}
+        if 'title' in data and data.get('title') is not None:
+            update_data['title'] = data['title']
+        if 'order' in data and data.get('order') is not None:
+            update_data['order'] = data['order']
+        def do_update():
+            return supabase.from_("goal_sections").update(update_data).eq('id', section_id).eq('org_id', org_id).execute()
+        res = await safe_supabase_operation(do_update, "Failed to update section")
+        return res.data
+
+    @staticmethod
+    async def delete_section(org_id: str, section_id: str) -> None:
+        supabase = get_supabase_client()
+        def do_delete():
+            return supabase.from_("goal_sections").delete().eq('id', section_id).eq('org_id', org_id).execute()
+        await safe_supabase_operation(do_delete, "Failed to delete section")
 
     @staticmethod
     async def delete_goal(org_id: str, goal_id: str) -> None:
@@ -238,7 +281,7 @@ class GoalService:
                     'user_id': user_id,
                     'progress': progress,
                     'note': note,
-                }).select('*').single().execute()
+                }).execute()
             res = await safe_supabase_operation(do_insert, "Failed to add update")
             return res.data
         except Exception as e:

@@ -8,7 +8,6 @@ GoalStatus = Literal['draft', 'active', 'paused', 'done']
 
 class GoalAssignment(BaseModel):
     userId: str = Field(..., description="Assigned user's ID")
-    role: Literal['owner', 'contributor', 'viewer']
 
 
 class GoalUpdateCreate(BaseModel):
@@ -33,6 +32,9 @@ class GoalBase(BaseModel):
     dueDate: Optional[date] = None
     visibility: Optional[Literal['org', 'private']] = 'org'
     assignees: Optional[List[GoalAssignment]] = None
+    category: Optional[List[str]] = None
+    subCategory: Optional[List[str]] = None
+    sectionId: Optional[str] = None
 
 
 class GoalCreate(GoalBase):
@@ -47,6 +49,9 @@ class GoalUpdate(BaseModel):
     dueDate: Optional[date] = None
     visibility: Optional[Literal['org', 'private']] = None
     assignees: Optional[List[GoalAssignment]] = None
+    category: Optional[List[str]] = None
+    subCategory: Optional[List[str]] = None
+    sectionId: Optional[str] = None
 
 
 class GoalOut(BaseModel):
@@ -60,6 +65,9 @@ class GoalOut(BaseModel):
     visibility: Optional[Literal['org', 'private']] = 'org'
     progress: Optional[int] = 0
     assignees: List[GoalAssignment] = []
+    category: List[str] = []
+    subCategory: List[str] = []
+    sectionId: Optional[str] = None
     createdBy: str
     createdAt: datetime
     updatedAt: datetime
